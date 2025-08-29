@@ -1035,16 +1035,16 @@ document.addEventListener('DOMContentLoaded', () => {
             : `<span class="badge badge-gray">Unpublished</span>`;
 
         button.innerHTML = `
-                    <div class="flex-grow min-w-0">
-                        <p class="truncate font-semibold">${itemTitle}</p>
-                        <p class="text-xs text-gray-500 truncate">Module: ${firstIssue.moduleTitle || 'N/A'}</p>
-                    </div>
-                    <div class="flex items-center flex-shrink-0 ml-4 space-x-2">
-                        <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-md">${firstIssue.itemType}</span>
-                        ${itemStatusIndicator}
-                        <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                `;
+                <div class="flex-grow min-w-0">
+                    <p class="truncate font-semibold">${itemTitle}</p>
+                    <p class="text-xs text-gray-500 truncate">Module: ${firstIssue.moduleTitle || 'N/A'}</p>
+                </div>
+                <div class="flex items-center flex-shrink-0 ml-4 space-x-2">
+                    <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-md">${firstIssue.itemType}</span>
+                    ${itemStatusIndicator}
+                    <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            `;
 
         const content = document.createElement('div');
         content.className = 'accordion-content bg-white';
@@ -1064,10 +1064,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = button.querySelector('svg');
             if (content && icon) {
                 if (content.style.maxHeight) {
-                    content.style.maxHeight = null;
+                    content.style.maxHeight = null; // Collapse
                     icon.classList.remove('rotate-180');
                 } else {
-                    content.style.maxHeight = content.scrollHeight + "px";
+                    content.style.maxHeight = 'none'; // Expand to fit content
                     icon.classList.add('rotate-180');
                 }
             }
