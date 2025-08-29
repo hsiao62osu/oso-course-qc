@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    /* =======================================================================
+        Data Structures
+        ======================================================================== */
+    const courseStructure = [];
+    const allCourseContent = [];
+
     /* =========================================================================
        State & Shared Utilities
        ========================================================================= */
@@ -239,8 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        console.log('itemMetaMap', itemMetaMap);
-
         // Build resourceMap from manifest resources
         const resourceMap = new Map();
         for (const resource of manifest.getElementsByTagName("resource")) {
@@ -254,13 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        console.log('resouceMap', resourceMap);
-
         // NOTE: preserve original selection logic (keeps same selector to avoid changing behavior)
         const organizations = manifest.querySelector("organizations item");
-        const courseStructure = [];
         const contentItemsForAnalysis = [];
-        const allCourseContent = [];
         const inModuleItemIdentifiers = new Set();
         const resourceToManifestItemMap = new Map();
 
@@ -564,14 +564,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.className = 'flex items-center justify-between text-gray-700';
 
                 // Use numeric indent from module_meta.xml (safe default 0)
-                const rawIndent = Number(item.indent);
+                const rawIndent = item.indent; // Use the indent from the item directly
                 const indentLevel = Number.isFinite(rawIndent) ? Math.max(0, Math.floor(rawIndent)) : 0;
 
                 // Apply visual indentation (padding-left) so layout remains stable.
-                // 1.5rem per indent level is a reasonable visual step; adjust if desired.
                 li.style.paddingLeft = `${indentLevel * 1.5}rem`;
 
-                const typeDetails = getItemTypeDetails(item.clarifiedType);
+                // Get the correct type details from allCourseContent
+                const itemDetails = allCourseContent.find(contentItem => contentItem.title === item.title) || {};
+                const typeDetails = getItemTypeDetails(itemDetails.clarifiedType || 'unspecified');
                 const itemStatusIndicator = item.status === 'active'
                     ? `<span class="badge badge-green">Published</span>`
                     : `<span class="badge badge-gray">Unpublished</span>`;
