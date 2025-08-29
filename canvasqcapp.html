@@ -503,7 +503,11 @@
                             const metaItems = Array.from(modEl.querySelectorAll('item'));
                             metaItems.forEach(mItem => {
                                 const itemId = mItem.getAttribute('identifier');
-                                const meta = itemMetaMap.get(itemId) || { status: 'unpublished', indent: 0 };
+                                // Prefer explicit indent from module_meta.xml item if present, otherwise use itemMetaMap
+                                const metaFromMap = itemMetaMap.get(itemId) || { status: 'unpublished', indent: 0 };
+                                const indentFromMetaXml = parseInt(mItem.querySelector('indent')?.textContent || '', 10);
+                                const indent = Number.isFinite(indentFromMetaXml) ? indentFromMetaXml : (metaFromMap.indent || 0);
+                                const status = metaFromMap.status || 'unpublished';
 
                                 const manifestItem = findManifestItemById(itemId);
                                 const identifierRef = manifestItem?.getAttribute('identifierref') || null;
@@ -515,8 +519,8 @@
                                     title,
                                     identifier: itemId,
                                     identifierref: identifierRef,
-                                    status: meta.status,
-                                    indent: meta.indent,
+                                    status,
+                                    indent,
                                     clarifiedType: 'unspecified'
                                 });
 
@@ -666,6 +670,10 @@
                         if (existing) {
                             existing.inModule = true;
                             existing.moduleTitle = module.title;
+                            // propagate indent and identifiers from module meta so other views can use them
+                            existing.indent = item.indent ?? existing.indent;
+                            if (item.identifier) existing.identifier = item.identifier;
+                            if (item.identifierref) existing.identifierref = item.identifierref;
                         }
                     });
                 });
