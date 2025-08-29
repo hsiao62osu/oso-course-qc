@@ -241,7 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const id = metaItem.getAttribute("identifier");
                 const status = metaItem.querySelector("workflow_state")?.textContent === 'active' ? 'active' : 'unpublished';
                 const indent = parseInt(metaItem.querySelector("indent")?.textContent || '0', 10);
-                if (id) itemMetaMap.set(id, { status, indent });
+                const contentType = metaItem.querySelector("content_type")?.textContent || 'N/A'; // Extract content_type
+                if (id) itemMetaMap.set(id, { status, indent, contentType }); // Store contentType
             }
         }
 
@@ -287,10 +288,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     metaItems.forEach(mItem => {
                         const itemId = mItem.getAttribute('identifier');
                         // Prefer explicit indent from module_meta.xml item if present, otherwise use itemMetaMap
-                        const metaFromMap = itemMetaMap.get(itemId) || { status: 'unpublished', indent: 0 };
+                        const metaFromMap = itemMetaMap.get(itemId) || { status: 'unpublished', indent: 0, contentType: 'N/A' };
                         const indentFromMetaXml = parseInt(mItem.querySelector('indent')?.textContent || '', 10);
                         const indent = Number.isFinite(indentFromMetaXml) ? indentFromMetaXml : (metaFromMap.indent || 0);
                         const status = metaFromMap.status || 'unpublished';
+                        const contentType = metaFromMap.contentType; // Get contentType
 
                         const manifestItem = findManifestItemById(itemId);
                         const identifierRef = manifestItem?.getAttribute('identifierref') || null;
@@ -304,7 +306,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             identifierref: identifierRef,
                             status,
                             indent,
-                            clarifiedType: 'unspecified'
+                            clarifiedType: 'unspecified',
+                            contentType // Include contentType in module item
                         });
 
                         if (itemId) inModuleItemIdentifiers.add(itemId);
@@ -335,7 +338,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             identifierref: childIdRef,
                             status: childMeta.status,
                             indent: childMeta.indent,
-                            clarifiedType: 'unspecified'
+                            clarifiedType: 'unspecified',
+                            contentType: childMeta.contentType || 'N/A' // Include contentType for child items
                         };
                     });
 
@@ -363,7 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: itemMeta.status,
                 indent: itemMeta.indent,
                 inModule: inModule,
-                moduleTitle: moduleTitle
+                moduleTitle: moduleTitle,
+                contentType: itemMeta.contentType // Include contentType in itemData
             };
 
             let analysisHref = null;
@@ -374,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isPage = itemData.type === 'webcontent' && itemData.href && itemData.href.startsWith('wiki_content/');
             const isFile = itemData.type === 'webcontent' && itemData.href && itemData.href.startsWith('web_resources/');
             const isLink = itemData.type.includes('imswl_xmlv1p1');
-            const isHeader = itemData.type === 'Header';
+            const isHeader = itemData.contentType === 'ContextModuleSubHeader';
 
             if (isLink) {
                 itemData.clarifiedType = 'link';
@@ -457,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     existing.indent = item.indent ?? existing.indent;
                     if (item.identifier) existing.identifier = item.identifier;
                     if (item.identifierref) existing.identifierref = item.identifierref;
+                    existing.contentType = item.contentType; // Include contentType in existing item
                 }
             });
         });
@@ -490,13 +496,16 @@ document.addEventListener('DOMContentLoaded', () => {
             label: 'File'
         };
 
-        if (type === 'assignment') {
+        if (type === 'contextmodulesubheader') {
+            details.label = 'Header';
+            details.icon = `<svg class="${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>`;
+        } else if (type === 'assignment') {
             details.label = 'Assignment';
             details.icon = `<svg class="${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>`;
         } else if (type === 'page') {
             details.label = 'Page';
             details.icon = `<svg class="${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
-        } else if (type === 'link') {
+        } else if (type === 'externalurl') {
             details.label = 'Link';
             details.icon = `<svg class="${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>`;
         } else if (type === 'survey') {
@@ -572,6 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Get the correct type details from allCourseContent
                 const itemDetails = allCourseContent.find(contentItem => contentItem.title === item.title) || {};
+                itemDetails.clarifiedType = Object.keys(itemDetails).length === 0 ? item.contentType.toLowerCase() : itemDetails.clarifiedType;
                 const typeDetails = getItemTypeDetails(itemDetails.clarifiedType || 'unspecified');
                 const itemStatusIndicator = item.status === 'active'
                     ? `<span class="badge badge-green">Published</span>`
@@ -771,6 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
                             }
                         };
+                        console.log('Processing', item.title);
                         const results = await axe.run(doc.body.querySelectorAll('*'), axeOptions);
                         const addMetadata = (issue) => ({
                             ...issue,
