@@ -549,8 +549,8 @@ document.addEventListener('DOMContentLoaded', () => {
             button.className = 'accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
             const statusIndicator = module.status === 'active'
-                ? `<span class="badge badge-green">Published</span>`
-                : `<span class="badge badge-gray">Unpublished</span>`;
+                ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>`
+                : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
 
             button.innerHTML = `
                         <span class="truncate pr-4">${module.title}</span>
@@ -585,8 +585,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 itemDetails.clarifiedType = Object.keys(itemDetails).length === 0 ? item.contentType.toLowerCase() : itemDetails.clarifiedType;
                 const typeDetails = getItemTypeDetails(itemDetails.clarifiedType || 'unspecified');
                 const itemStatusIndicator = item.status === 'active'
-                    ? `<span class="badge badge-green">Published</span>`
-                    : `<span class="badge badge-gray">Unpublished</span>`;
+                    ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>`
+                    : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
 
                 li.innerHTML = `
                             <div class="flex items-center flex-grow min-w-0">
@@ -667,8 +667,8 @@ document.addEventListener('DOMContentLoaded', () => {
             items.sort((a, b) => a.title.localeCompare(b.title)).forEach(item => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between text-gray-700 text-sm';
-                const statusIndicator = item.status === 'active' ? `<span class="badge badge-green">Published</span>` : `<span class="badge badge-gray">Unpublished</span>`;
-                const moduleIndicator = item.inModule ? `<span class="badge badge-blue">In Module</span>` : `<span class="badge badge-gray">Not in Module</span>`;
+                const statusIndicator = item.status === 'active' ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>` : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
+                const moduleIndicator = item.inModule ? `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">In Module</span>` : `<span class="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 inset-ring inset-ring-gray-400/20">Not in Module</span>`;
 
                 li.innerHTML = `
                             <span class="truncate" title="${item.title}">${item.title}</span>
@@ -760,12 +760,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let doc;
             if (item.analysisType === 'xml') {
-                console.log(item.clarifiedType);
                 const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
                 const description = xmlDoc.querySelector("description");
                 const htmlContent = description ? description.textContent : '';
                 doc = SHARED_PARSER.parseFromString(htmlContent, "text/html");
-                console.log(doc);
+                
             } else if (item.analysisType === 'discussion_xml') {
                 const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
                 const text = xmlDoc.querySelector("text");
@@ -779,13 +778,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     if (doc.body.querySelectorAll('*').length > 0) {
                         const axeOptions = {
-                            runOnly: {
-                                type: 'tag',
-                                values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
-                            }
+                            runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'],
                         };
                         const results = await axe.run(doc.body.querySelectorAll('*'), axeOptions);
-                        console.log(getItemTypeDetails(item.clarifiedType).label);
                         const addMetadata = (issue) => ({
                             ...issue,
                             itemTitle: item.title,
@@ -794,8 +789,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             moduleTitle: item.moduleTitle
                         });
 
-                        console.log(allResults.violations);
-                        console.log(allResults.passes);
                         allResults.violations.push(...results.violations.map(addMetadata));
                         allResults.passes.push(...results.passes.map(addMetadata));
                         allResults.incomplete.push(...results.incomplete.map(addMetadata));
@@ -838,7 +831,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const categories = [
             { name: 'Violations', data: results.violations, color: 'red' },
-            { name: 'Passes', data: results.passes, color: 'green' }
+            { name: 'Passes', data: results.passes, color: 'green' },
+            { name: 'Incomplete', data: results.incomplete, color: 'yellow' }
         ];
 
         categories.forEach(cat => {
@@ -855,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = document.createElement('label');
             label.htmlFor = filterId;
             label.className = 'ml-2 flex items-center cursor-pointer';
-            label.innerHTML = `${cat.name} <span class="ml-1.5 badge badge-${cat.color}">${cat.data.length}</span>`;
+            label.innerHTML = `${cat.name} ${cat.name === 'Incomplete' ? '(Manual Inspection Recommended)' : ''}: <span class="inline-flex items-center rounded-md bg-purple-400/10 px-2 py-1 text-xs font-medium text-purple-400 inset-ring inset-ring-purple-400/30">${cat.data.length}</span>`;
 
             filterWrapper.appendChild(checkbox);
             filterWrapper.appendChild(label);
@@ -1031,8 +1025,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.className = 'accordion-header w-full flex justify-between items-center p-3 text-left text-sm font-medium text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
         const itemStatusIndicator = firstIssue.status === 'active'
-            ? `<span class="badge badge-green">Published</span>`
-            : `<span class="badge badge-gray">Unpublished</span>`;
+            ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>`
+            : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
 
         button.innerHTML = `
                 <div class="flex-grow min-w-0">
@@ -1088,12 +1082,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = document.createElement('button');
         button.className = 'accordion-header w-full flex justify-between items-center p-2 text-left text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
-        const impactColor = { critical: 'red', serious: 'red', moderate: 'yellow', minor: 'blue', info: 'gray' }[issue.impact] || 'gray';
-
+        const impactBadge = {
+            critical: `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Critical</span>`,
+            serious: `<span class="inline-flex items-center rounded-md bg-pink-400/10 px-2 py-1 text-xs font-medium text-pink-400 inset-ring inset-ring-pink-400/20">Serious</span>`,
+            moderate: `<span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">Moderate</span>`,
+            minor: `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">Minor</span>`,
+            info: `<span class="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 inset-ring inset-ring-gray-400/20">Info</span>`,
+        };
+        // const impactColor = { critical: 'red', serious: 'red', moderate: 'yellow', minor: 'blue', info: 'gray' }[issue.impact] || 'gray';
         button.innerHTML = `
-                    <span class="truncate pr-4">${issue.help}</span>
+                    <span class="truncate pr-4">${_.escape(issue.help)}</span>
                     <div class="flex items-center flex-shrink-0 ml-4">
-                        <span class="badge badge-${impactColor}">${issue.impact}</span>
+                        ${impactBadge[issue.impact] || ''}
                         <svg class="w-4 h-4 transform transition-transform ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 `;
@@ -1111,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         innerContent.innerHTML = `
                     <div>
                         <p class="font-semibold text-gray-800">Description:</p>
-                        <p class="text-gray-600">${issue.description}</p>
+                        <p class="text-gray-600">${_.escape(issue.description)}</p>
                     </div>
                     <div>
                         <p class="font-semibold text-gray-800">Affected Element:</p>
@@ -1254,9 +1254,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         summaryContainer.innerHTML = `
-                    <span class="badge badge-green">${success} OK</span>
-                    <span class="badge badge-red">${failed} Failed</span>
-                    <span class="badge badge-yellow">${other} Other</span>
+                    <span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">${success} OK</span>
+                    <span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">${failed} Failed</span>
+                    <span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">${other} Other</span>
                 `;
     }
 
@@ -1267,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayFileAttachments(files) {
         const container = document.getElementById('file-attachment-results');
         const summaryContainer = document.getElementById('file-attachment-summary');
-        summaryContainer.innerHTML = `<span class="badge badge-blue">${files.length} files</span>`;
+        summaryContainer.innerHTML = `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">${files.length} files</span>`;
 
         if (files.length === 0) {
             container.innerHTML = '<p class="text-gray-500">No file attachments found.</p>';
@@ -1297,8 +1297,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const withoutTranscript = videos.length - withTranscript;
 
         summaryContainer.innerHTML = `
-                    <span class="badge badge-green">${withTranscript} w/ transcript</span>
-                    <span class="badge badge-yellow">${withoutTranscript} w/o transcript</span>
+                    <span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">${withTranscript} transcript detected</span>
+                    <span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">${withoutTranscript} transcript not detected</span>
                 `;
 
         if (videos.length === 0) {
