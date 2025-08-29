@@ -1206,58 +1206,87 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('link-inventory-results');
         const summaryContainer = document.getElementById('link-summary');
 
-        let success = 0, failed = 0, other = 0;
-
-        if (links.length === 0) {
-            container.innerHTML = '<p class="text-gray-500">No external links found.</p>';
+        if (links.length > 0) {
+            container.innerHTML = '';
+        } else {
             return;
         }
 
-        container.innerHTML = '<div class="space-y-3"></div>';
-        const contentDiv = container.firstChild;
+        // Create filter UI
+        const filterContainer = document.createElement('div');
+        filterContainer.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-2">Filter by Link Type:</label>`;
+        const filterCheckboxes = document.createElement('div');
+        filterCheckboxes.id = 'link-type-filters';
+        filterCheckboxes.className = 'flex flex-wrap gap-4';
 
-        for (const link of links) {
-            const linkDiv = document.createElement('div');
-            linkDiv.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
-            linkDiv.innerHTML = `
-                        <div class="flex-shrink-0"><div class="status-indicator animate-pulse w-3 h-3 bg-gray-400 rounded-full mt-1.5"></div></div>
-                        <div class="flex-grow min-w-0">
-                            <p class="font-medium text-gray-800 truncate" title="${link.url}">${link.url}</p>
-                            <p class="text-sm text-gray-500">Found in: ${link.itemTitle}</p>
-                        </div>
-                    `;
-            contentDiv.appendChild(linkDiv);
+        const types = [...new Set(links.map(link => link.type))]; // Get unique types
 
-            // Preserve original comment and simulated status
-            try {
-                const status = 200; // Simulating success
+        types.forEach(type => {
+            const filterId = `filter-link-type-${type.replace(/\s+/g, '')}`;
+            const filterWrapper = document.createElement('div');
+            filterWrapper.className = 'flex items-center';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = filterId;
+            checkbox.dataset.type = type;
+            checkbox.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+            checkbox.checked = true; // Check all by default
 
-                const indicator = linkDiv.querySelector('.status-indicator');
-                indicator.classList.remove('animate-pulse', 'bg-gray-400');
+            const label = document.createElement('label');
+            label.htmlFor = filterId;
+            label.className = 'ml-2 flex items-center cursor-pointer';
+            label.textContent = type == 'osu' ? 'OSU' : `${type.charAt(0).toUpperCase()}${type.substring(1)}` ;
 
-                if (status >= 200 && status < 300) {
-                    indicator.classList.add('bg-green-500');
-                    success++;
-                } else if (status >= 400) {
-                    indicator.classList.add('bg-red-500');
-                    failed++;
-                } else {
-                    indicator.classList.add('bg-yellow-500');
-                    other++;
-                }
-            } catch (e) {
-                const indicator = linkDiv.querySelector('.status-indicator');
-                indicator.classList.remove('animate-pulse', 'bg-gray-400');
-                indicator.classList.add('bg-gray-500');
-                other++;
+            filterWrapper.appendChild(checkbox);
+            filterWrapper.appendChild(label);
+            filterCheckboxes.appendChild(filterWrapper);
+        });
+
+        filterContainer.appendChild(filterCheckboxes);
+        container.appendChild(filterContainer);
+
+        // Function to display links
+        const displayLinks = (filteredLinks) => {
+            let contentDiv = container.querySelector('.space-y-3');
+            if (!contentDiv) {
+                contentDiv = document.createElement('div');
+                contentDiv.className = 'space-y-3';
+                container.appendChild(contentDiv);
             }
-        }
+            contentDiv.innerHTML = ''; // Clear previous links
 
-        summaryContainer.innerHTML = `
-                    <span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">${success} OK</span>
-                    <span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">${failed} Failed</span>
-                    <span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">${other} Other</span>
+            if (filteredLinks.length === 0) {
+                contentDiv.innerHTML = '<p class="text-gray-500">No links found for the selected types.</p>';
+                return;
+            }
+
+            for (const link of filteredLinks) {
+                const linkDiv = document.createElement('div');
+                linkDiv.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
+                linkDiv.innerHTML = `
+                    <div class="flex-grow min-w-0">
+                        <p class="font-medium text-gray-800 truncate" title="${link.text}">${link.text}</p>
+                        <p class="text-sm text-gray-500"><strong>Target</strong>: <a href="${link.url}" target="_blank"><u>${link.url}</u></a></p>
+                        <p class="text-sm text-gray-500"><strong>Found in</strong>: ${link.itemTitle}</p>
+                    </div>
                 `;
+                contentDiv.appendChild(linkDiv);
+            }
+        };
+
+        // Filter links based on selected types
+        const filterLinks = () => {
+            const selectedTypes = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => cb.dataset.type);
+            const filteredLinks = selectedTypes.length === 0 ? [] : links.filter(link => selectedTypes.includes(link.type));
+            displayLinks(filteredLinks);
+        };
+
+        filterCheckboxes.querySelectorAll('input').forEach(checkbox => {
+            checkbox.addEventListener('change', filterLinks);
+        });
+
+        // Initial display of links
+        filterLinks();
     }
 
     /**
@@ -1313,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = 'p-3 bg-gray-50 rounded-md flex items-center space-x-3';
             const statusIcon = video.hasTranscript
                 ? `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
-                : `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+                : `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
 
             li.innerHTML = `
                         <div>${statusIcon}</div>
@@ -1341,8 +1370,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!doc || !doc.querySelectorAll) return links;
         doc.querySelectorAll('a[href]').forEach(a => {
             const href = a.getAttribute('href');
-            if (href && !href.startsWith('#') && !a.classList.contains('instructure_file_link') && !a.classList.contains('instructure_scribd_file')) {
-                links.push({ url: href, text: a.textContent.trim(), itemTitle: item.title });
+            if (href && !href.startsWith('#') && !href.startsWith('mailto') && !a.classList.contains('instructure_file_link') && !a.classList.contains('instructure_scribd_file')) {
+                let type = 'unknown'; 
+                if (href.startsWith('$CANVAS') || href.includes('$WIKI_REFERENCE$')) {
+                    type = 'course';
+                } else if (href.includes('.osu.edu') || href.includes('.ohio-state.edu')) {
+                    type = 'osu';
+                } else {
+                    type = 'external'
+                }
+                links.push({ url: href, text: a.textContent.trim(), itemTitle: item.title, type: type });
             }
         });
         return links;
