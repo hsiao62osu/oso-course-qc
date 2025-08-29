@@ -449,6 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     contentItemsForAnalysis.push({ ...itemData, href: analysisHref, analysisType });
                 }
             }
+
         }
 
         // Preserve original behavior: add module items to main list (keeps same comparison by title)
@@ -722,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let doc;
             if (item.analysisType === 'xml') {
                 const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
-                const description = xmlDoc.querySelector("assessment_meta > description");
+                const description = xmlDoc.querySelector("description");
                 const htmlContent = description ? description.textContent : '';
                 doc = SHARED_PARSER.parseFromString(htmlContent, "text/html");
             } else if (item.analysisType === 'discussion_xml') {
@@ -759,10 +760,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let doc;
             if (item.analysisType === 'xml') {
+                console.log(item.clarifiedType);
                 const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
-                const description = xmlDoc.querySelector("assessment_meta > description");
+                const description = xmlDoc.querySelector("description");
                 const htmlContent = description ? description.textContent : '';
                 doc = SHARED_PARSER.parseFromString(htmlContent, "text/html");
+                console.log(doc);
             } else if (item.analysisType === 'discussion_xml') {
                 const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
                 const text = xmlDoc.querySelector("text");
@@ -781,8 +784,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']
                             }
                         };
-                        console.log('Processing', item.title);
                         const results = await axe.run(doc.body.querySelectorAll('*'), axeOptions);
+                        console.log(getItemTypeDetails(item.clarifiedType).label);
                         const addMetadata = (issue) => ({
                             ...issue,
                             itemTitle: item.title,
@@ -791,6 +794,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             moduleTitle: item.moduleTitle
                         });
 
+                        console.log(allResults.violations);
+                        console.log(allResults.passes);
                         allResults.violations.push(...results.violations.map(addMetadata));
                         allResults.passes.push(...results.passes.map(addMetadata));
                         allResults.incomplete.push(...results.incomplete.map(addMetadata));
@@ -799,10 +804,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (e) {
                     console.warn(`Accessibility scan skipped for ${item.title}: ${e.message}`);
                 }
-            }
+            } 
         }
 
         accessibilityData = allResults;
+        
         setupAccessibilityTab(accessibilityData, items);
     }
 
