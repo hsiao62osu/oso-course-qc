@@ -1260,12 +1260,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const linkTypeBadges = {
+                osu: `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">OSU</span>`,
+                external: `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">External</span>`,
+                course: `<span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">Course</span>`,
+            };
+
             for (const link of filteredLinks) {
                 const linkDiv = document.createElement('div');
                 linkDiv.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
                 linkDiv.innerHTML = `
                     <div class="flex-grow min-w-0">
                         <p class="font-medium text-gray-800 truncate" title="${link.text}">${link.text}</p>
+                        <p aria-description="link type">${linkTypeBadges[link.type]}</p>
                         <p class="text-sm text-gray-500"><strong>Target</strong>: <a href="${link.url}" target="_blank"><u>${link.url}</u></a></p>
                         <p class="text-sm text-gray-500"><strong>Found in</strong>: ${link.itemTitle}</p>
                     </div>

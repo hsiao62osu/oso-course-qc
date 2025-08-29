@@ -23,11 +23,11 @@ body {
 }
 
 .badge-green {
-  @apply bg-green-100 text-green-800;
+  @apply bg-green-500 text-white; /* Use Tailwind classes for better contrast */
 }
 
 .badge-red {
-  @apply bg-red-100 text-red-800;
+  @apply bg-red-500 text-white; /* Use Tailwind classes for better contrast */
 }
 
 .badge-yellow {
@@ -56,4 +56,12 @@ body {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease-out;
+}
+
+.tab-btn {
+  @apply transition-transform duration-200; /* Use Tailwind for transitions */
+}
+
+.tab-btn:hover {
+  @apply transform scale-105; /* Use Tailwind for scaling effect */
 }
