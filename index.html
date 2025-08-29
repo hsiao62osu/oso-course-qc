@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Canvas Course QA Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.8.4/axe.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+
+    <div class="w-full max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Canvas Course QA Tool</h1>
+            <p class="mt-2 text-lg text-gray-600">Upload an IMSCC 1.1 archive to perform quality checks.</p>
+        </header>
+
+        <main>
+            <!-- File Upload Section -->
+            <div id="upload-section" class="card mb-8">
+                <div class="card-content">
+                    <div id="drop-zone"
+                        class="flex justify-center items-center w-full h-64 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                        <div class="flex flex-col justify-center items-center pt-5 pb-6">
+                            <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                                </path>
+                            </svg>
+                            <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or
+                                drag and drop</p>
+                            <p class="text-xs text-gray-500">IMSCC 1.1 ZIP archive</p>
+                        </div>
+                        <input id="file-input" type="file" class="hidden" accept=".zip,.imscc" />
+                    </div>
+                    <div id="file-info" class="hidden mt-4 text-center">
+                        <p class="text-gray-700 font-medium">File: <span id="file-name"></span></p>
+                        <p class="text-gray-500 text-sm">Size: <span id="file-size"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading and Progress Section -->
+            <div id="loading-section" class="hidden text-center my-8">
+                <div class="flex items-center justify-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg"
+                        fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <p id="loading-status" class="text-lg text-gray-700">Processing course...</p>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                    <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Results Section with Tabs -->
+            <div id="results-section" class="hidden">
+                <!-- Tab Navigation -->
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button id="tab-btn-structure"
+                            class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-indigo-500 text-indigo-600">Course
+                            Structure</button>
+                        <button id="tab-btn-content"
+                            class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Course
+                            Content</button>
+                        <button id="tab-btn-accessibility"
+                            class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Accessibility</button>
+                        <button id="tab-btn-links"
+                            class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Link
+                            Inventory</button>
+                        <button id="tab-btn-files"
+                            class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">File
+                            Attachments</button>
+                        <button id="tab-btn-videos"
+                            class="tab-btn whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Video
+                            & Transcripts</button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="mt-6">
+                    <div id="tab-content-structure" class="tab-content">
+                        <div class="card">
+                            <div class="card-content">
+                                <div id="course-structure" class="pr-4 space-y-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tab-content-content" class="tab-content hidden">
+                        <div class="card">
+                            <div class="card-content">
+                                <div id="course-content-list" class="pr-4 space-y-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tab-content-accessibility" class="tab-content hidden">
+                        <div class="card">
+                            <div class="card-content">
+                                <div id="accessibility-controls" class="space-y-4 mb-4 border-b pb-4"></div>
+                                <div id="accessibility-results" class="max-h-[32rem] overflow-y-auto pr-2 space-y-2">
+                                    <p class="text-gray-500">No issues found or analysis not run.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tab-content-links" class="tab-content hidden">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Link Inventory</h2>
+                                <div id="link-summary"></div>
+                            </div>
+                            <div id="link-inventory-results" class="card-content max-h-[32rem] overflow-y-auto">
+                                <p class="text-gray-500">No links found or analysis not run.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tab-content-files" class="tab-content hidden">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">File Attachment Inventory</h2>
+                                <div id="file-attachment-summary"></div>
+                            </div>
+                            <div id="file-attachment-results" class="card-content max-h-[32rem] overflow-y-auto">
+                                <p class="text-gray-500">No file attachments found.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tab-content-videos" class="tab-content hidden">
+                        <div class="card">
+                            <div class="card-header">
+                                <h2 class="card-title">Video & Transcript Check</h2>
+                                <div id="video-summary"></div>
+                            </div>
+                            <div id="video-results" class="card-content max-h-[32rem] overflow-y-auto">
+                                <p class="text-gray-500">No videos found or analysis not run.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+
+</html>
