@@ -144,6 +144,43 @@ document.addEventListener('DOMContentLoaded', () => {
         setInnerHTMLById('video-summary', '');
     }
 
+    /**
+     * Create badge components
+     */
+    function createBadge(text, colorString) {
+        const newSpan = document.createElement('span');
+        newSpan.textContent = text;
+        let classNames = 'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium inset-ring ';
+        switch (colorString) {
+            case 'blue':
+                classNames += 'bg-blue-400/10 text-blue-400 inset-ring-blue-400/30';
+                break;
+            case 'red':
+                classNames += 'bg-red-400/10 text-red-400 inset-ring-red-400/20';
+                break;
+            case 'green':
+                classNames += 'bg-green-400/10 text-green-500 inset-ring-green-500/20';
+                break;
+            case 'yellow':
+                classNames += 'bg-yellow-400/10 text-yellow-500 inset-ring-yellow-400/20';
+                break;
+            case 'indigo':
+                classNames += 'bg-indigo-400/10 text-indigo-400 inset-ring-indigo-400/30';
+                break;
+            case 'purple':
+                classNames += 'bg-purple-400/10 text-purple-400 inset-ring-purple-400/30';
+                break;
+            case 'pink':
+                classNames += 'bg-pink-400/10 text-pink-400 inset-ring-pink-400/20';
+                break;
+            case 'gray':
+            default:
+                classNames += 'bg-gray-400/10 text-gray-400 inset-ring-gray-400/20';
+        };
+        newSpan.className = classNames;
+        return newSpan.outerHTML;
+    }
+
     /* =========================================================================
        Archive extraction
        ========================================================================= */
@@ -549,8 +586,8 @@ document.addEventListener('DOMContentLoaded', () => {
             button.className = 'accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
             const statusIndicator = module.status === 'active'
-                ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>`
-                : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
+                ? createBadge('Published', 'green')
+                : createBadge('Unpublished', 'red');
 
             button.innerHTML = `
                         <span class="truncate pr-4">${module.title}</span>
@@ -585,8 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 itemDetails.clarifiedType = Object.keys(itemDetails).length === 0 ? item.contentType.toLowerCase() : itemDetails.clarifiedType;
                 const typeDetails = getItemTypeDetails(itemDetails.clarifiedType || 'unspecified');
                 const itemStatusIndicator = item.status === 'active'
-                    ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>`
-                    : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
+                    ? createBadge('Published', 'green')
+                    : createBadge('Unpublished', 'red');
 
                 li.innerHTML = `
                             <div class="flex items-center flex-grow min-w-0">
@@ -667,8 +704,8 @@ document.addEventListener('DOMContentLoaded', () => {
             items.sort((a, b) => a.title.localeCompare(b.title)).forEach(item => {
                 const li = document.createElement('li');
                 li.className = 'flex items-center justify-between text-gray-700 text-sm';
-                const statusIndicator = item.status === 'active' ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>` : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
-                const moduleIndicator = item.inModule ? `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">In Module</span>` : `<span class="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 inset-ring inset-ring-gray-400/20">Not in Module</span>`;
+                const statusIndicator = item.status === 'active' ? createBadge('Published', 'green') : createBadge('Unpublished', 'red');
+                const moduleIndicator = item.inModule ? createBadge('In Module', 'blue') : createBadge('Not in Module', 'gray');
 
                 li.innerHTML = `
                             <span class="truncate" title="${item.title}">${item.title}</span>
@@ -764,7 +801,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const description = xmlDoc.querySelector("description");
                 const htmlContent = description ? description.textContent : '';
                 doc = SHARED_PARSER.parseFromString(htmlContent, "text/html");
-                
+
             } else if (item.analysisType === 'discussion_xml') {
                 const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
                 const text = xmlDoc.querySelector("text");
@@ -797,11 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (e) {
                     console.warn(`Accessibility scan skipped for ${item.title}: ${e.message}`);
                 }
-            } 
+            }
         }
 
         accessibilityData = allResults;
-        
+
         setupAccessibilityTab(accessibilityData, items);
     }
 
@@ -849,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = document.createElement('label');
             label.htmlFor = filterId;
             label.className = 'ml-2 flex items-center cursor-pointer';
-            label.innerHTML = `${cat.name} ${cat.name === 'Incomplete' ? '(Manual Inspection Recommended)' : ''}: <span class="inline-flex items-center rounded-md bg-purple-400/10 px-2 py-1 text-xs font-medium text-purple-400 inset-ring inset-ring-purple-400/30">${cat.data.length}</span>`;
+            label.innerHTML = `${cat.name} ${cat.name === 'Incomplete' ? '(Manual Inspection Recommended)' : ''} &nbsp; ${createBadge(cat.data.length, 'purple')}`;
 
             filterWrapper.appendChild(checkbox);
             filterWrapper.appendChild(label);
@@ -1025,8 +1062,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.className = 'accordion-header w-full flex justify-between items-center p-3 text-left text-sm font-medium text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
         const itemStatusIndicator = firstIssue.status === 'active'
-            ? `<span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">Published</span>`
-            : `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Unpublished</span>`;
+            ? createBadge('Published', 'green')
+            : createBadge('Unpublished', 'red');
 
         button.innerHTML = `
                 <div class="flex-grow min-w-0">
@@ -1083,13 +1120,13 @@ document.addEventListener('DOMContentLoaded', () => {
         button.className = 'accordion-header w-full flex justify-between items-center p-2 text-left text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
         const impactBadge = {
-            critical: `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">Critical</span>`,
-            serious: `<span class="inline-flex items-center rounded-md bg-pink-400/10 px-2 py-1 text-xs font-medium text-pink-400 inset-ring inset-ring-pink-400/20">Serious</span>`,
-            moderate: `<span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">Moderate</span>`,
-            minor: `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">Minor</span>`,
-            info: `<span class="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 inset-ring inset-ring-gray-400/20">Info</span>`,
+            critical: createBadge('Critical', 'red'),
+            serious: createBadge('Serious', 'pink'),
+            moderate: createBadge('Moderate', 'yellow'),
+            minor: createBadge('Minor', 'blue'),
+            info: createBadge('Info'),
         };
-        // const impactColor = { critical: 'red', serious: 'red', moderate: 'yellow', minor: 'blue', info: 'gray' }[issue.impact] || 'gray';
+
         button.innerHTML = `
                     <span class="truncate pr-4">${_.escape(issue.help)}</span>
                     <div class="flex items-center flex-shrink-0 ml-4">
@@ -1235,8 +1272,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = document.createElement('label');
             label.htmlFor = filterId;
             label.className = 'ml-2 flex items-center cursor-pointer';
-            label.textContent = type == 'osu' ? 'OSU' : `${type.charAt(0).toUpperCase()}${type.substring(1)}` ;
-
+            label.textContent = type == 'osu' ? 'OSU' : `${type.charAt(0).toUpperCase()}${type.substring(1)}`;
+            label.innerHTML += `&nbsp; ${createBadge(links.filter(l => l.type == type).length, 'purple')}`;
             filterWrapper.appendChild(checkbox);
             filterWrapper.appendChild(label);
             filterCheckboxes.appendChild(filterWrapper);
@@ -1261,9 +1298,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const linkTypeBadges = {
-                osu: `<span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 inset-ring inset-ring-red-400/20">OSU</span>`,
-                external: `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">External</span>`,
-                course: `<span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">Course</span>`,
+                osu: createBadge('OSU', 'red'),
+                external: createBadge('External', 'blue'),
+                course: createBadge('Course', 'yellow'),
             };
 
             for (const link of filteredLinks) {
@@ -1303,22 +1340,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayFileAttachments(files) {
         const container = document.getElementById('file-attachment-results');
         const summaryContainer = document.getElementById('file-attachment-summary');
-        summaryContainer.innerHTML = `<span class="inline-flex items-center rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 inset-ring inset-ring-blue-400/30">${files.length} files</span>`;
+        summaryContainer.innerHTML = `Attachments found: &nbsp; ${createBadge(files.length, 'purple')}`;
 
         if (files.length === 0) {
             container.innerHTML = '<p class="text-gray-500">No file attachments found.</p>';
             return;
         }
         container.innerHTML = '';
-        const ul = document.createElement('ul');
-        ul.className = 'space-y-2';
+
         files.forEach(file => {
             const li = document.createElement('li');
-            li.className = 'p-2 bg-gray-50 rounded-md text-sm';
-            li.innerHTML = `<span class="font-medium text-gray-800">${file.text}</span> <span class="text-gray-500">(in ${file.itemTitle})</span>`;
-            ul.appendChild(li);
+            li.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
+            li.innerHTML = `
+                <div class="flex-grow min-w-0">
+                    <p class="font-medium text-gray-800 truncate" title="${file.text}">${file.text}</p>
+                    <p class="text-sm text-gray-500"><strong>Page</strong>: ${file.itemTitle}</p>
+                    <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.itemModule}</p>
+                </div>
+            `;
+            container.appendChild(li);
         });
-        container.appendChild(ul);
     }
 
     /**
@@ -1333,8 +1374,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const withoutTranscript = videos.length - withTranscript;
 
         summaryContainer.innerHTML = `
-                    <span class="inline-flex items-center rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 inset-ring inset-ring-green-500/20">${withTranscript} transcript detected</span>
-                    <span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 inset-ring inset-ring-yellow-400/20">${withoutTranscript} transcript not detected</span>
+                    ${createBadge(`${withTranscript} transcript detected`, 'green')}
+                    ${createBadge(`${withoutTranscript} transcript not detected`, 'yellow')}
                 `;
 
         if (videos.length === 0) {
@@ -1364,7 +1405,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =========================================================================
-       Content parsing helpers (links/files/videos               ========================================================================= */
+       Content parsing helpers (links/files/videos               
+       ========================================================================= */
 
     /**
      * Find external links in a document and return structured items.
@@ -1378,7 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.querySelectorAll('a[href]').forEach(a => {
             const href = a.getAttribute('href');
             if (href && !href.startsWith('#') && !href.startsWith('mailto') && !a.classList.contains('instructure_file_link') && !a.classList.contains('instructure_scribd_file')) {
-                let type = 'unknown'; 
+                let type = 'unknown';
                 if (href.startsWith('$CANVAS') || href.includes('$WIKI_REFERENCE$')) {
                     type = 'course';
                 } else if (href.includes('.osu.edu') || href.includes('.ohio-state.edu')) {
@@ -1402,8 +1444,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const files = [];
         if (!doc || !doc.querySelectorAll) return files;
         doc.querySelectorAll('a.instructure_file_link, a.instructure_scribd_file').forEach(a => {
-            files.push({ text: a.textContent.trim(), itemTitle: item.title });
+            files.push({ text: a.textContent.trim(), itemModule: item.inModule ? item.moduleTitle : '(None)', itemTitle: item.title, href: a.href });
         });
+
         return files;
     }
 
