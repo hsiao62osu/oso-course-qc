@@ -815,6 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     if (doc.body.querySelectorAll('*').length > 0) {
                         const axeOptions = {
+                            preload: false,
                             runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'],
                         };
                         const results = await axe.run(doc.body.querySelectorAll('*'), axeOptions);
@@ -1349,16 +1350,17 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
 
         files.forEach(file => {
-            const li = document.createElement('li');
-            li.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
-            li.innerHTML = `
+            const liDiv = document.createElement('li');
+            liDiv.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
+            liDiv.innerHTML = `
                 <div class="flex-grow min-w-0">
                     <p class="font-medium text-gray-800 truncate" title="${file.text}">${file.text}</p>
-                    <p class="text-sm text-gray-500"><strong>Page</strong>: ${file.itemTitle}</p>
+                    ${createBadge(file.itemType[0].toUpperCase()+file.itemType.substring(1))}
+                    <p class="text-sm text-gray-500"><strong>In Item</strong>: ${file.itemTitle}</p>
                     <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.itemModule}</p>
                 </div>
             `;
-            container.appendChild(li);
+            container.appendChild(liDiv);
         });
     }
 
@@ -1444,7 +1446,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const files = [];
         if (!doc || !doc.querySelectorAll) return files;
         doc.querySelectorAll('a.instructure_file_link, a.instructure_scribd_file').forEach(a => {
-            files.push({ text: a.textContent.trim(), itemModule: item.inModule ? item.moduleTitle : '(None)', itemTitle: item.title, href: a.href });
+            files.push({ text: a.textContent.trim(), itemType: item.clarifiedType, itemModule: item.inModule ? item.moduleTitle : '(None)', itemTitle: item.title, href: a.href });
         });
 
         return files;
