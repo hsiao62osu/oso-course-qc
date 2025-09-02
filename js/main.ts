@@ -141,6 +141,58 @@ document.addEventListener('DOMContentLoaded', () => {
     function capitalize(s: string): string {
         return s.charAt(0).toUpperCase() + s.slice(1);
     }
+
+    /**
+         * Create badge components
+        */
+    function createBadge(text: string, colorString?: string) {
+        const newSpan = document.createElement('span');
+        newSpan.textContent = text;
+        let classNames = 'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium inset-ring ';
+        switch (colorString) {
+            case 'blue':
+                classNames += 'bg-blue-400/10 text-blue-400 inset-ring-blue-400/30';
+                break;
+            case 'red':
+                classNames += 'bg-red-400/10 text-red-400 inset-ring-red-400/20';
+                break;
+            case 'green':
+                classNames += 'bg-green-400/10 text-green-500 inset-ring-green-500/20';
+                break;
+            case 'yellow':
+                classNames += 'bg-yellow-400/10 text-yellow-500 inset-ring-yellow-400/20';
+                break;
+            case 'indigo':
+                classNames += 'bg-indigo-400/10 text-indigo-400 inset-ring-indigo-400/30';
+                break;
+            case 'purple':
+                classNames += 'bg-purple-400/10 text-purple-400 inset-ring-purple-400/30';
+                break;
+            case 'pink':
+                classNames += 'bg-pink-400/10 text-pink-400 inset-ring-pink-400/20';
+                break;
+            case 'gray':
+            default:
+                classNames += 'bg-gray-400/10 text-gray-400 inset-ring-gray-400/20';
+        };
+        newSpan.className = classNames;
+        return newSpan.outerHTML;
+    }
+
+    const DEFAULT_BADGES = {
+        impact: {
+            critical: createBadge('Critical', 'red'),
+            serious: createBadge('Serious', 'pink'),
+            moderate: createBadge('Moderate', 'yellow'),
+            minor: createBadge('Minor', 'blue'),
+            info: createBadge('Info'),
+        },
+        status: {
+            published: createBadge('Published', 'green'),
+            unpublished: createBadge('Unpublished', 'red'),
+        }
+    };
+
     /* =========================================================================
        Tabs
        ========================================================================= */
@@ -196,7 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     fileInput.addEventListener('change', (e) => {
-        if ('files' in e.target && e.target.files instanceof Array && e.target.files.length > 0) handleFile(e.target.files[0]);
+        if ('files' in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
+            console.log('I am in file input change');
+            handleFile(e.target.files[0]);
+        }
     });
 
     /* =========================================================================
@@ -271,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Shows progress UI and kicks off analysis pipeline.
      */
     function handleFile(file: File) {
+        console.log('I am in handleFile');
         fileNameEl.textContent = file.name;
         fileSizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
         fileInfo.classList.remove('hidden');
@@ -303,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function processAndAnalyze(fileContents: { [key: string]: string }) {
         const inModuleResourceIdentifiers: Set<string> = new Set();
-       
+
         updateProgress(90, 'Parsing manifest...');
 
         // Helper to find a manifest <item> element by an identifier (e.g., a meta item's identifier)
@@ -485,8 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // TODO: I'm here! So close! 
         // await analyzeContent(fileContents, contentItemsForAnalysis);
 
-        analyzeContent({string: "Test"}, []);
-
+        analyzeContent({ string: "Test" }, []);
 
         updateProgress(100, 'Analysis complete!');
         loadingSection.classList.add('hidden');
@@ -534,60 +589,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (type === 'discussion') {
                 details.label = 'Discussion';
                 details.icon = `<svg class="${iconClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>`;
-            } 
+            }
             return details;
         }
-
-        /**
-         * Create badge components
-        */
-        function createBadge(text: string, colorString?: string) {
-            const newSpan = document.createElement('span');
-            newSpan.textContent = text;
-            let classNames = 'inline-flex items-center rounded-md px-2 py-1 text-xs font-medium inset-ring ';
-            switch (colorString) {
-                case 'blue':
-                    classNames += 'bg-blue-400/10 text-blue-400 inset-ring-blue-400/30';
-                    break;
-                case 'red':
-                    classNames += 'bg-red-400/10 text-red-400 inset-ring-red-400/20';
-                    break;
-                case 'green':
-                    classNames += 'bg-green-400/10 text-green-500 inset-ring-green-500/20';
-                    break;
-                case 'yellow':
-                    classNames += 'bg-yellow-400/10 text-yellow-500 inset-ring-yellow-400/20';
-                    break;
-                case 'indigo':
-                    classNames += 'bg-indigo-400/10 text-indigo-400 inset-ring-indigo-400/30';
-                    break;
-                case 'purple':
-                    classNames += 'bg-purple-400/10 text-purple-400 inset-ring-purple-400/30';
-                    break;
-                case 'pink':
-                    classNames += 'bg-pink-400/10 text-pink-400 inset-ring-pink-400/20';
-                    break;
-                case 'gray':
-                default:
-                    classNames += 'bg-gray-400/10 text-gray-400 inset-ring-gray-400/20';
-            };
-            newSpan.className = classNames;
-            return newSpan.outerHTML;
-        }
-
-        const DEFAULT_BADGES = {
-            impact: {
-                critical: createBadge('Critical', 'red'),
-                serious: createBadge('Serious', 'pink'),
-                moderate: createBadge('Moderate', 'yellow'),
-                minor: createBadge('Minor', 'blue'),
-                info: createBadge('Info'),
-            },
-            status: {
-                published: createBadge('Published', 'green'),
-                unpublished: createBadge('Unpublished', 'red'),
-            }
-        };
 
         /**
          * Render the course structure accordion.
