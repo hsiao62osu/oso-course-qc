@@ -43,25 +43,21 @@ document.addEventListener('DOMContentLoaded', () => {
         contentType: string,
     }
 
-    type ManifestResourceWithElement = {
-        title: string,
-        resource?: Resource;
-        resourceElement: Element;
-    }
-
     type VideoObject = {
+        title: string;
         platform: string;
+        type: string;
         src: string;
-        hasTranscript: boolean;
-        itemTitle: string;
+        transcriptOrCaptionMentioned: boolean;
+        parentResourceTitle: string;
     }
 
     type FileObject = {
-        text: string;
-        itemType: string;
-        itemModule: string;
-        itemTitle: string;
         href: string;
+        parentAnchorText: string;
+        parentResourceType: string;
+        parentResourceModuleTitle: string;
+        parentResourceTitle: string;
     };
 
     const LINK_TYPES = ['osu', 'external', 'course', 'unknown'] as const;
@@ -392,17 +388,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Skip several types of resources:LTIs, links in modules, and qustion banks (for now)
             if (
                 // LTIs
-                resourceType === 'imsbasiclti_xmlv1p3' || 
+                resourceType === 'imsbasiclti_xmlv1p3' ||
                 // Links in modules
-                resourceType === 'imswl_xmlv1p1'|| 
+                resourceType === 'imswl_xmlv1p1' ||
                 // Question banks (for now)
                 resourceHref?.includes('non_cc_assessments') ||
                 // Syllabus entry in manifest
-                resourceIdentifier.endsWith('_syllabus') || 
+                resourceIdentifier.endsWith('_syllabus') ||
                 // Course settings entry
                 resourceHref?.includes('canvas_export.txt')
             ) continue;
-            
+
             let resourceStatus = 'unknown';
             let resourceTitle = 'untitled';
 
@@ -474,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')]) {
                         const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute('identifier');
                         manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
-                    
+
                         const settingsHref = matchingManifestResourceElement.getAttribute('href');
                         const itemSettingsDoc = SHARED_PARSER.parseFromString(fileContents[settingsHref], "application/xml");
                         if (itemSettingsDoc) {
@@ -490,9 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (resourceClarifiedType === 'file') {
                 continue;
-            }
-            if (resourceTitle === 'untitled') {
-                console.log(resourceIdentifier);
             }
             allResources.push({
                 identifier: resourceIdentifier,
@@ -532,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let clarifiedType = 'tbd';
 
                 const matchingResource = allResources.find(r => r.identifier === moduleItemIdentifierRef);
-                
+
                 if (matchingResource) {
                     clarifiedType = matchingResource?.clarifiedType || contentType;
                     matchingResource.moduleTitle = moduleTitle;
@@ -567,10 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayCourseContent(allResources);
 
         updateProgress(95, 'Analyzing course content...');
-        // TODO: I'm here! So close! 
-        // await analyzeContent(fileContents, contentItemsForAnalysis);
-
-        analyzeContent({ string: "Test" }, []);
+        await analyzeContent(fileContents, allResources);
 
         updateProgress(100, 'Analysis complete!');
         loadingSection.classList.add('hidden');
@@ -674,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.style.paddingLeft = `${indentLevel * 1.5}rem`;
 
                     // Get the correct type details from allCourseContent
-                    const itemClarifiedType = item.clarifiedType || 'unspecified';
+                    const itemClarifiedType = (item.clarifiedType != 'tbd' && item.clarifiedType != 'unspecified') ? item.clarifiedType : item.contentType;
                     const typeDetails = getItemTypeDetails(itemClarifiedType.toLowerCase());
                     const itemStatusIndicator = item.status === 'active'
                         ? DEFAULT_BADGES.status.published
@@ -807,11 +797,11 @@ document.addEventListener('DOMContentLoaded', () => {
          * items - items to analyze (with href and analysisType)
          */
         // Todo: More robust type checking for item
-        async function analyzeContent(fileContents: { string: string }, items: Array<any>) {
+        async function analyzeContent(fileContents: { [key: string]: string }, items: Array<Resource>) {
             let allLinks: Array<LinkObject> = [], allFiles: Array<FileObject> = [], allVideos: Array<VideoObject> = [];
 
             for (const item of items) {
-                const content = fileContents[item.href];
+                const content = fileContents[item.analysisHref];
                 if (!content) continue;
 
                 let doc: Document;
@@ -834,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 allVideos.push(...findVideos(doc, item));
             }
 
-            await runAndDisplayAccessibilityChecks(items, fileContents);
+            // await runAndDisplayAccessibilityChecks(items, fileContents);
             await checkAndDisplayLinks(allLinks);
             displayFileAttachments(allFiles);
             displayVideos(allVideos);
@@ -844,7 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
          * Run axe accessibility checks on items and prepare data for the accessibility tab.
          */
         // TODO: More robust type checking
-        async function runAndDisplayAccessibilityChecks(items: Array<any>, fileContents: { string: string }) {
+        async function runAndDisplayAccessibilityChecks(items: Array<any>, fileContents: { [key: string]: string }) {
             let allResults: EnhancedAxeResults;
 
             for (const item of items) {
@@ -1396,10 +1386,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 liDiv.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
                 liDiv.innerHTML = `
                 <div class="flex-grow min-w-0">
-                    <p class="font-medium text-gray-800 truncate" title="${file.text}">${file.text}</p>
-                    ${createBadge(capitalize(file.itemType))}
-                    <p class="text-sm text-gray-500"><strong>In Item</strong>: ${file.itemTitle}</p>
-                    <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.itemModule}</p>
+                    <p class="font-medium text-gray-800 truncate" title="${file.parentAnchorText}">${file.parentAnchorText}</p>
+                    <p class="text-sm text-gray-500"><strong>In Item</strong>: ${createBadge(capitalize(file.parentResourceType))} ${file.parentResourceTitle}</p>
+                    <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.parentResourceModuleTitle}</p>
                 </div>
             `;
                 container.appendChild(liDiv);
@@ -1413,13 +1402,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = document.getElementById('video-results');
             const summaryContainer = document.getElementById('video-summary');
 
-            const withTranscript = videos.filter(v => v.hasTranscript).length;
-            const withoutTranscript = videos.length - withTranscript;
+            const transcriptOrCaptionMentioned = videos.filter(v => v.transcriptOrCaptionMentioned).length;
+            const noTranscriptOrCaptionMentioned = videos.length - transcriptOrCaptionMentioned;
 
             summaryContainer.innerHTML = `
-                    ${createBadge(`${withTranscript} transcript detected`, 'green')}
-                    ${createBadge(`${withoutTranscript} transcript not detected`, 'yellow')}
-                `;
+            <p><strong>Transcript and/or caption potentially included</strong>:</p>
+            <p>
+                    ${createBadge(`${transcriptOrCaptionMentioned} video(s) with surrounding mentions of transcript or caption`, 'yellow')}&nbsp;
+                    ${createBadge(`${noTranscriptOrCaptionMentioned} video(s) without surrounding mentions of transcript or caption`, 'red')}
+                </p>
+                    `;
 
             if (videos.length === 0) {
                 container.innerHTML = '<p class="text-gray-500">No embedded videos found.</p>';
@@ -1431,15 +1423,18 @@ document.addEventListener('DOMContentLoaded', () => {
             videos.forEach(video => {
                 const li = document.createElement('li');
                 li.className = 'p-3 bg-gray-50 rounded-md flex items-center space-x-3';
-                const statusIcon = video.hasTranscript
-                    ? `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
-                    : `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+                const statusIcon = video.transcriptOrCaptionMentioned
+                    ? `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`
+                    : `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
 
                 li.innerHTML = `
                         <div>${statusIcon}</div>
                         <div>
-                            <p class="font-medium text-gray-800">${video.platform} Video</p>
-                            <p class="text-sm text-gray-500">Found in: ${video.itemTitle}</p>
+                            <p class="font-medium text-gray-800">${video.title}</p>
+                            <p>${video.type == 'embed' ? createBadge('Embed', 'blue') : createBadge('Link', 'indigo')}</p>
+                            <p class="text-sm text-gray-500"><strong>Platform</strong>: ${video.platform}</p>
+                            <p class="text-sm text-gray-500"><strong>Found in:</strong> ${video.parentResourceTitle}</p>
+                            <p class="text-sm text-gray-500"><strong>URL:</strong> ${video.src}</p>
                         </div>
                     `;
                 ul.appendChild(li);
@@ -1455,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', () => {
          * Find external links in a document and return structured items.
          */
         // TODO: More robust type checking for item
-        function findLinks(doc: Document, item: any): Array<LinkObject> {
+        function findLinks(doc: Document, item: Resource): Array<LinkObject> {
 
             const links = Array<LinkObject>();
             if (!doc || !doc.querySelectorAll) return links;
@@ -1480,16 +1475,16 @@ document.addEventListener('DOMContentLoaded', () => {
          * Find file attachment links in a document.
          */
         // TODO: More robust type checking
-        function findFileAttachments(doc: Document, item: any): Array<FileObject> {
-            const files = [];
+        function findFileAttachments(doc: Document, item: Resource): Array<FileObject> {
+            const files: Array<FileObject> = [];
 
             if (!doc || !doc.querySelectorAll) return files;
             doc.querySelectorAll('a.instructure_file_link, a.instructure_scribd_file').forEach(a => {
                 files.push({
-                    text: a.textContent.trim(),
-                    itemType: item.clarifiedType,
-                    itemModule: item.inModule ? item.moduleTitle : '(None)',
-                    itemTitle: item.title, href: (a as HTMLAnchorElement).href
+                    parentAnchorText: a.textContent.trim(),
+                    parentResourceType: item.clarifiedType,
+                    parentResourceModuleTitle: item.moduleTitle === undefined ? '(None)' : item.moduleTitle,
+                    parentResourceTitle: item.title, href: (a as HTMLAnchorElement).href
                 });
             });
 
@@ -1499,23 +1494,59 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Find embedded iframes that correspond to supported video platforms.
          */
-        // TODO: More robust type checking
-        function findVideos(doc: Document, item: any): Array<VideoObject> {
+        function findVideos(doc: Document, item: Resource): Array<VideoObject> {
             const videos = Array<VideoObject>();
             if (!doc || !doc.querySelectorAll) return videos;
+
+            // TODO: Future opportunity to refactor
+
+            // Check iFrames
             doc.querySelectorAll('iframe').forEach(iframe => {
                 const src = (iframe.src || '').toLowerCase();
+                const title = iframe.title || '(Title Not Found)';
                 let platform = 'Unknown';
-                if (src.includes('youtube.com') || src.includes('youtu.be')) platform = 'YouTube';
-                else if (src.includes('vimeo.com')) platform = 'Vimeo';
-                else if (src.includes('mediasite.com')) platform = 'Mediasite';
-                else if (src.includes('echo360.com')) platform = 'Echo360';
-                else if (src.includes('panopto.com')) platform = 'Panopto';
+                let type = 'embed'
+                if (src.includes('www.youtube.com/embed/')) platform = 'YouTube';
+                else if (src.includes('player.vimeo.com')) platform = 'Vimeo';
+                else if (src.includes('https://mediasite.osu.edu/mediasite/lti/home/coverplay') || src.includes('mediasite.osu.edu/mediasite/play')) platform = 'Mediasite';
+                else if (src.includes('echo360.com/media')) platform = 'Echo360';
+                else if (src.includes('osucon.hosted.panopto.com')) platform = 'Panopto'
+                else if (src.includes('instructuremedia.com')) platform = 'Instructure';
 
-                if (platform !== 'Unknown') {
-                    const adjacentText = (iframe.previousSibling?.textContent || '') + ' ' + (iframe.nextSibling?.textContent || '');
-                    const hasTranscript = /transcript|caption/i.test(adjacentText);
-                    videos.push({ platform, src: iframe.src, hasTranscript, itemTitle: item.title });
+                if (platform != 'Unknown') {
+                    const traverseRootTag = iframe.parentElement instanceof HTMLParagraphElement ? iframe.parentElement : iframe;
+
+                    const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || '') + ' ' + (traverseRootTag.nextElementSibling?.innerHTML || '') + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || '')).toLowerCase();
+                    console.log(adjacentText);
+
+                    const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
+
+                    videos.push({ title: title, platform, src: src, type: type, transcriptOrCaptionMentioned: transcriptOrCaptionMentioned, parentResourceTitle: item.title });
+                }
+            });
+
+            doc.querySelectorAll('a').forEach(a => {
+                const src = (a.href || '').toLowerCase();
+                const title = a.text || '(Title Not Found)';
+                let platform = 'Unknown';
+                let type = 'link'
+                if (src.includes('www.youtube.com/watch') || src.includes('youtu.be')) platform = 'YouTube';
+                else if (src.includes('vimeo.com')) platform = 'Vimeo';
+                else if (src.includes('mediasite.osu.edu/mediasite/play')) platform = 'Mediasite';
+                else if (src.includes('external_tools')) platform = 'External Tool (potentially Mediasite';
+                else if (src.includes('echo360.org/media')) platform = 'Echo360';
+                else if (src.includes('osucon.hosted.panopto.com')) platform = 'Panopto'
+                else if (src.includes('instructuremedia.com')) platform = 'Instructure';
+
+                if (platform != 'Unknown') {
+                    const traverseRootTag = a.parentElement instanceof HTMLParagraphElement ? a.parentElement : a;
+
+                    const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || '') + ' ' + (traverseRootTag.nextElementSibling?.innerHTML || '') + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || '')).toLowerCase();
+                    console.log(adjacentText);
+
+                    const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
+
+                    videos.push({ title: title, platform, src: src, type: type, transcriptOrCaptionMentioned: transcriptOrCaptionMentioned, parentResourceTitle: item.title });
                 }
             });
             return videos;

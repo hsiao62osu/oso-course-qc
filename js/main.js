@@ -285,9 +285,6 @@
         if (resourceClarifiedType === "file") {
           continue;
         }
-        if (resourceTitle === "untitled") {
-          console.log(resourceIdentifier);
-        }
         allResources.push({
           identifier: resourceIdentifier,
           title: resourceTitle,
@@ -346,7 +343,7 @@
       displayModules(allModules);
       displayCourseContent(allResources);
       updateProgress(95, "Analyzing course content...");
-      analyzeContent({ string: "Test" }, []);
+      await analyzeContent(fileContents, allResources);
       updateProgress(100, "Analysis complete!");
       loadingSection.classList.add("hidden");
       resultsSection.classList.remove("hidden");
@@ -415,7 +412,7 @@
             const rawIndent = item.indent;
             const indentLevel = Number.isFinite(rawIndent) ? Math.max(0, Math.floor(rawIndent)) : 0;
             li.style.paddingLeft = `${indentLevel * 1.5}rem`;
-            const itemClarifiedType = item.clarifiedType || "unspecified";
+            const itemClarifiedType = item.clarifiedType != "tbd" && item.clarifiedType != "unspecified" ? item.clarifiedType : item.contentType;
             const typeDetails = getItemTypeDetails(itemClarifiedType.toLowerCase());
             const itemStatusIndicator = item.status === "active" ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
             li.innerHTML = `
@@ -518,7 +515,7 @@
       async function analyzeContent(fileContents2, items) {
         let allLinks = [], allFiles = [], allVideos = [];
         for (const item of items) {
-          const content = fileContents2[item.href];
+          const content = fileContents2[item.analysisHref];
           if (!content) continue;
           let doc;
           if (item.analysisType === "xml") {
@@ -538,7 +535,6 @@
           allFiles.push(...findFileAttachments(doc, item));
           allVideos.push(...findVideos(doc, item));
         }
-        await runAndDisplayAccessibilityChecks(items, fileContents2);
         await checkAndDisplayLinks(allLinks);
         displayFileAttachments(allFiles);
         displayVideos(allVideos);
@@ -967,10 +963,9 @@
           liDiv.className = "p-3 rounded-md bg-gray-50 flex items-start space-x-3";
           liDiv.innerHTML = `
                 <div class="flex-grow min-w-0">
-                    <p class="font-medium text-gray-800 truncate" title="${file.text}">${file.text}</p>
-                    ${createBadge(capitalize(file.itemType))}
-                    <p class="text-sm text-gray-500"><strong>In Item</strong>: ${file.itemTitle}</p>
-                    <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.itemModule}</p>
+                    <p class="font-medium text-gray-800 truncate" title="${file.parentAnchorText}">${file.parentAnchorText}</p>
+                    <p class="text-sm text-gray-500"><strong>In Item</strong>: ${createBadge(capitalize(file.parentResourceType))} ${file.parentResourceTitle}</p>
+                    <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.parentResourceModuleTitle}</p>
                 </div>
             `;
           container.appendChild(liDiv);
@@ -979,12 +974,15 @@
       function displayVideos(videos) {
         const container = document.getElementById("video-results");
         const summaryContainer = document.getElementById("video-summary");
-        const withTranscript = videos.filter((v) => v.hasTranscript).length;
-        const withoutTranscript = videos.length - withTranscript;
+        const transcriptOrCaptionMentioned = videos.filter((v) => v.transcriptOrCaptionMentioned).length;
+        const noTranscriptOrCaptionMentioned = videos.length - transcriptOrCaptionMentioned;
         summaryContainer.innerHTML = `
-                    ${createBadge(`${withTranscript} transcript detected`, "green")}
-                    ${createBadge(`${withoutTranscript} transcript not detected`, "yellow")}
-                `;
+            <p><strong>Transcript and/or caption potentially included</strong>:</p>
+            <p>
+                    ${createBadge(`${transcriptOrCaptionMentioned} video(s) with surrounding mentions of transcript or caption`, "yellow")}&nbsp;
+                    ${createBadge(`${noTranscriptOrCaptionMentioned} video(s) without surrounding mentions of transcript or caption`, "red")}
+                </p>
+                    `;
         if (videos.length === 0) {
           container.innerHTML = '<p class="text-gray-500">No embedded videos found.</p>';
           return;
@@ -995,12 +993,15 @@
         videos.forEach((video) => {
           const li = document.createElement("li");
           li.className = "p-3 bg-gray-50 rounded-md flex items-center space-x-3";
-          const statusIcon = video.hasTranscript ? `<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` : `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+          const statusIcon = video.transcriptOrCaptionMentioned ? `<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>` : `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
           li.innerHTML = `
                         <div>${statusIcon}</div>
                         <div>
-                            <p class="font-medium text-gray-800">${video.platform} Video</p>
-                            <p class="text-sm text-gray-500">Found in: ${video.itemTitle}</p>
+                            <p class="font-medium text-gray-800">${video.title}</p>
+                            <p>${video.type == "embed" ? createBadge("Embed", "blue") : createBadge("Link", "indigo")}</p>
+                            <p class="text-sm text-gray-500"><strong>Platform</strong>: ${video.platform}</p>
+                            <p class="text-sm text-gray-500"><strong>Found in:</strong> ${video.parentResourceTitle}</p>
+                            <p class="text-sm text-gray-500"><strong>URL:</strong> ${video.src}</p>
                         </div>
                     `;
           ul.appendChild(li);
@@ -1031,10 +1032,10 @@
         if (!doc || !doc.querySelectorAll) return files;
         doc.querySelectorAll("a.instructure_file_link, a.instructure_scribd_file").forEach((a) => {
           files.push({
-            text: a.textContent.trim(),
-            itemType: item.clarifiedType,
-            itemModule: item.inModule ? item.moduleTitle : "(None)",
-            itemTitle: item.title,
+            parentAnchorText: a.textContent.trim(),
+            parentResourceType: item.clarifiedType,
+            parentResourceModuleTitle: item.moduleTitle === void 0 ? "(None)" : item.moduleTitle,
+            parentResourceTitle: item.title,
             href: a.href
           });
         });
@@ -1045,16 +1046,41 @@
         if (!doc || !doc.querySelectorAll) return videos;
         doc.querySelectorAll("iframe").forEach((iframe) => {
           const src = (iframe.src || "").toLowerCase();
+          const title = iframe.title || "(Title Not Found)";
           let platform = "Unknown";
-          if (src.includes("youtube.com") || src.includes("youtu.be")) platform = "YouTube";
+          let type = "embed";
+          if (src.includes("www.youtube.com/embed/")) platform = "YouTube";
+          else if (src.includes("player.vimeo.com")) platform = "Vimeo";
+          else if (src.includes("https://mediasite.osu.edu/mediasite/lti/home/coverplay") || src.includes("mediasite.osu.edu/mediasite/play")) platform = "Mediasite";
+          else if (src.includes("echo360.com/media")) platform = "Echo360";
+          else if (src.includes("osucon.hosted.panopto.com")) platform = "Panopto";
+          else if (src.includes("instructuremedia.com")) platform = "Instructure";
+          if (platform != "Unknown") {
+            const traverseRootTag = iframe.parentElement instanceof HTMLParagraphElement ? iframe.parentElement : iframe;
+            const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || "") + " " + (traverseRootTag.nextElementSibling?.innerHTML || "") + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || "")).toLowerCase();
+            console.log(adjacentText);
+            const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
+            videos.push({ title, platform, src, type, transcriptOrCaptionMentioned, parentResourceTitle: item.title });
+          }
+        });
+        doc.querySelectorAll("a").forEach((a) => {
+          const src = (a.href || "").toLowerCase();
+          const title = a.text || "(Title Not Found)";
+          let platform = "Unknown";
+          let type = "link";
+          if (src.includes("www.youtube.com/watch") || src.includes("youtu.be")) platform = "YouTube";
           else if (src.includes("vimeo.com")) platform = "Vimeo";
-          else if (src.includes("mediasite.com")) platform = "Mediasite";
-          else if (src.includes("echo360.com")) platform = "Echo360";
-          else if (src.includes("panopto.com")) platform = "Panopto";
-          if (platform !== "Unknown") {
-            const adjacentText = (iframe.previousSibling?.textContent || "") + " " + (iframe.nextSibling?.textContent || "");
-            const hasTranscript = /transcript|caption/i.test(adjacentText);
-            videos.push({ platform, src: iframe.src, hasTranscript, itemTitle: item.title });
+          else if (src.includes("mediasite.osu.edu/mediasite/play")) platform = "Mediasite";
+          else if (src.includes("external_tools")) platform = "External Tool (potentially Mediasite";
+          else if (src.includes("echo360.org/media")) platform = "Echo360";
+          else if (src.includes("osucon.hosted.panopto.com")) platform = "Panopto";
+          else if (src.includes("instructuremedia.com")) platform = "Instructure";
+          if (platform != "Unknown") {
+            const traverseRootTag = a.parentElement instanceof HTMLParagraphElement ? a.parentElement : a;
+            const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || "") + " " + (traverseRootTag.nextElementSibling?.innerHTML || "") + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || "")).toLowerCase();
+            console.log(adjacentText);
+            const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
+            videos.push({ title, platform, src, type, transcriptOrCaptionMentioned, parentResourceTitle: item.title });
           }
         });
         return videos;
