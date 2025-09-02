@@ -249,7 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     fileInput.addEventListener('change', (e) => {
         if ('files' in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
-            console.log('I am in file input change');
             handleFile(e.target.files[0]);
         }
     });
@@ -326,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
      * Shows progress UI and kicks off analysis pipeline.
      */
     function handleFile(file: File) {
-        console.log('I am in handleFile');
         fileNameEl.textContent = file.name;
         fileSizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
         fileInfo.classList.remove('hidden');
@@ -371,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Helper to find a manifest <resource> element by an identifier (e.g., its corresponding <item>'s identifierref)
         const findManifestResourceElementByIentifier = (id: string): Element | null => {
             if (!id) return null;
-            return Array.from(manifestFileContentParsed.getElementsByTagName('resource')).find(i => i.getAttribute('identifierRef') === id) || null;
+            return Array.from(manifestFileContentParsed.getElementsByTagName('resource')).find(i => i.getAttribute('identifier') === id) || null;
         };
 
         // Map of resource items gathered from imsmanifest.xml
@@ -380,30 +378,47 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error("imsmanifest.xml not found in the archive.");
         }
         const manifestFileContentParsed = SHARED_PARSER.parseFromString(manifestFileContent, "application/xml");
+        const manifestSupportingResourceElements: Array<string> = [];
 
         // Gather all manifest <resource> elements
         for (const manifestResourceElement of manifestFileContentParsed.getElementsByTagName("resource")) {
             const resourceIdentifier = manifestResourceElement.getAttribute("identifier");
-            const resourceType = manifestResourceElement.getAttribute("type");
             const resourceHref = manifestResourceElement.getAttribute("href");
+            const resourceType = manifestResourceElement.getAttribute("type");
+
+            // Skip supporting element
+            if (manifestSupportingResourceElements.includes(resourceIdentifier)) continue;
+
+            // Skip several types of resources:LTIs, links in modules, and qustion banks (for now)
+            if (
+                // LTIs
+                resourceType === 'imsbasiclti_xmlv1p3' || 
+                // Links in modules
+                resourceType === 'imswl_xmlv1p1'|| 
+                // Question banks (for now)
+                resourceHref?.includes('non_cc_assessments') ||
+                // Syllabus entry in manifest
+                resourceIdentifier.endsWith('_syllabus') || 
+                // Course settings entry
+                resourceHref?.includes('canvas_export.txt')
+            ) continue;
+            
             let resourceStatus = 'unknown';
             let resourceTitle = 'untitled';
 
-            let resourceAnalysisHref = null;
+            let resourceAnalysisHref: string | null = null;
             let resourceAnalysisType = 'html';
             const isAssignment = resourceType.includes('associatedcontent/imscc_xmlv1p1/learning-application-resource') && resourceHref && resourceHref.endsWith('html') && !resourceHref.startsWith('course_settings/');
             const isQuizOrSurvey = resourceType.includes('imsqti_xmlv1p2/imscc_xmlv1p1/assessment');
             const isDiscussion = resourceType.includes('imsdt_xmlv1p1');
             const isPage = resourceType === 'webcontent' && resourceHref && resourceHref.startsWith('wiki_content/');
             const isFile = resourceType === 'webcontent' && resourceHref && resourceHref.startsWith('web_resources/');
-            const isLink = resourceType.includes('imswl_xmlv1p1');
 
             let resourceClarifiedType = 'tbd';
             let resourceIdentifierRef: string | null = null;
 
-            if (isLink) {
-                resourceClarifiedType = 'link';
-            } else if (isFile) {
+            // TODO: A lot of refactoring opportunities here
+            if (isFile) {
                 resourceClarifiedType = 'file';
             } else if (isPage) {
                 resourceClarifiedType = 'page';
@@ -425,10 +440,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const assignmentHtmlPath = Object.keys(fileContents).find(fileName => fileName.startsWith(`${resourceIdentifier}/`) && fileName.endsWith('.html'));
                 if (assignmentHtmlPath) resourceAnalysisHref = assignmentHtmlPath;
             } else if (isQuizOrSurvey) {
-                const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')?.getAttribute("identifierRef");
+                const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')?.getAttribute("identifierref");
                 const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef);
-
                 if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')]) {
+                    const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute('identifier');
+                    manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
                     resourceAnalysisHref = matchingManifestResourceElement.getAttribute('href');
                     resourceAnalysisType = 'xml';
                     const itemMetaDoc = SHARED_PARSER.parseFromString(fileContents[resourceAnalysisHref], "application/xml");
@@ -452,10 +468,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const discussionDoc = SHARED_PARSER.parseFromString(fileContents[discussionXmlPath], "application/xml");
                     resourceTitle = discussionDoc.querySelector('title')?.textContent || resourceTitle;
 
-                    const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')?.getAttribute("identifierRef");
+                    const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')?.getAttribute("identifierref");
                     const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef);
 
                     if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')]) {
+                        const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute('identifier');
+                        manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
+                    
                         const settingsHref = matchingManifestResourceElement.getAttribute('href');
                         const itemSettingsDoc = SHARED_PARSER.parseFromString(fileContents[settingsHref], "application/xml");
                         if (itemSettingsDoc) {
@@ -469,6 +488,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            if (resourceClarifiedType === 'file') {
+                continue;
+            }
+            if (resourceTitle === 'untitled') {
+                console.log(resourceIdentifier);
+            }
             allResources.push({
                 identifier: resourceIdentifier,
                 title: resourceTitle,
@@ -507,7 +532,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 let clarifiedType = 'tbd';
 
                 const matchingResource = allResources.find(r => r.identifier === moduleItemIdentifierRef);
-                clarifiedType = matchingResource?.clarifiedType || clarifiedType;
+                
+                if (matchingResource) {
+                    clarifiedType = matchingResource?.clarifiedType || contentType;
+                    matchingResource.moduleTitle = moduleTitle;
+                }
 
                 const moduleItem: ModuleItem = {
                     identifier: moduleItemIdentifier,
@@ -646,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Get the correct type details from allCourseContent
                     const itemClarifiedType = item.clarifiedType || 'unspecified';
-                    const typeDetails = getItemTypeDetails(itemClarifiedType);
+                    const typeDetails = getItemTypeDetails(itemClarifiedType.toLowerCase());
                     const itemStatusIndicator = item.status === 'active'
                         ? DEFAULT_BADGES.status.published
                         : DEFAULT_BADGES.status.unpublished;
@@ -690,7 +719,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // TODO: Here
         /**
          * Render grouped course content accordion (by type).
          * Mirrors original implementation.     */
@@ -708,9 +736,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 (acc[typeLabel] = acc[typeLabel] || []).push(item);
                 return acc;
             }, {});
-
-            // TODO: What is groupedByType?
-            console.log(groupedByType);
 
             // TODO: What is items?
             for (const [type, items] of Object.entries(groupedByType)) {
@@ -736,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
                     li.className = 'flex items-center justify-between text-gray-700 text-sm';
                     const statusIndicator = item.status === 'active' ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
-                    const moduleIndicator = item.inModule ? createBadge('In Module', 'blue') : createBadge('Not in Module', 'gray');
+                    const moduleIndicator = item.moduleTitle !== undefined ? createBadge('In Module', 'blue') : createBadge('Not in Module', 'gray');
 
                     li.innerHTML = `
                             <span class="truncate" title="${item.title}">${item.title}</span>
@@ -1040,8 +1065,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const selectedStatuses = Array.from(document.querySelectorAll('#status-filters input:checked')).map(cb => (cb as HTMLInputElement).dataset.status);
 
-            const inModule: boolean | null = (document.getElementById('filter-module-in') as HTMLInputElement)?.checked;
-            const notInModule: boolean | null = (document.getElementById('filter-module-in') as HTMLInputElement)?.checked;
+            const inModule = (document.getElementById('filter-module-in') as HTMLInputElement)?.checked;
+            const notInModule = (document.getElementById('filter-module-in') as HTMLInputElement)?.checked;
 
             let filteredResults: Array<EnhancedAxeResult> = [];
             selectedResultTypes.forEach(type => {

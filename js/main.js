@@ -112,7 +112,6 @@
     });
     fileInput.addEventListener("change", (e) => {
       if ("files" in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
-        console.log("I am in file input change");
         handleFile(e.target.files[0]);
       }
     });
@@ -156,7 +155,6 @@
       }
     }
     function handleFile(file) {
-      console.log("I am in handleFile");
       fileNameEl.textContent = file.name;
       fileSizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
       fileInfo.classList.remove("hidden");
@@ -186,17 +184,27 @@
       };
       const findManifestResourceElementByIentifier = (id) => {
         if (!id) return null;
-        return Array.from(manifestFileContentParsed.getElementsByTagName("resource")).find((i) => i.getAttribute("identifierRef") === id) || null;
+        return Array.from(manifestFileContentParsed.getElementsByTagName("resource")).find((i) => i.getAttribute("identifier") === id) || null;
       };
       const manifestFileContent = fileContents["imsmanifest.xml"];
       if (!manifestFileContent) {
         throw new Error("imsmanifest.xml not found in the archive.");
       }
       const manifestFileContentParsed = SHARED_PARSER.parseFromString(manifestFileContent, "application/xml");
+      const manifestSupportingResourceElements = [];
       for (const manifestResourceElement of manifestFileContentParsed.getElementsByTagName("resource")) {
         const resourceIdentifier = manifestResourceElement.getAttribute("identifier");
-        const resourceType = manifestResourceElement.getAttribute("type");
         const resourceHref = manifestResourceElement.getAttribute("href");
+        const resourceType = manifestResourceElement.getAttribute("type");
+        if (manifestSupportingResourceElements.includes(resourceIdentifier)) continue;
+        if (
+          // LTIs
+          resourceType === "imsbasiclti_xmlv1p3" || // Links in modules
+          resourceType === "imswl_xmlv1p1" || // Question banks (for now)
+          resourceHref?.includes("non_cc_assessments") || // Syllabus entry in manifest
+          resourceIdentifier.endsWith("_syllabus") || // Course settings entry
+          resourceHref?.includes("canvas_export.txt")
+        ) continue;
         let resourceStatus = "unknown";
         let resourceTitle = "untitled";
         let resourceAnalysisHref = null;
@@ -206,12 +214,9 @@
         const isDiscussion = resourceType.includes("imsdt_xmlv1p1");
         const isPage = resourceType === "webcontent" && resourceHref && resourceHref.startsWith("wiki_content/");
         const isFile = resourceType === "webcontent" && resourceHref && resourceHref.startsWith("web_resources/");
-        const isLink = resourceType.includes("imswl_xmlv1p1");
         let resourceClarifiedType = "tbd";
         let resourceIdentifierRef = null;
-        if (isLink) {
-          resourceClarifiedType = "link";
-        } else if (isFile) {
+        if (isFile) {
           resourceClarifiedType = "file";
         } else if (isPage) {
           resourceClarifiedType = "page";
@@ -233,9 +238,11 @@
           const assignmentHtmlPath = Object.keys(fileContents).find((fileName) => fileName.startsWith(`${resourceIdentifier}/`) && fileName.endsWith(".html"));
           if (assignmentHtmlPath) resourceAnalysisHref = assignmentHtmlPath;
         } else if (isQuizOrSurvey) {
-          const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency")?.getAttribute("identifierRef");
+          const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency")?.getAttribute("identifierref");
           const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef2);
           if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute("href")]) {
+            const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute("identifier");
+            manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
             resourceAnalysisHref = matchingManifestResourceElement.getAttribute("href");
             resourceAnalysisType = "xml";
             const itemMetaDoc = SHARED_PARSER.parseFromString(fileContents[resourceAnalysisHref], "application/xml");
@@ -258,9 +265,11 @@
             resourceAnalysisType = "discussion_xml";
             const discussionDoc = SHARED_PARSER.parseFromString(fileContents[discussionXmlPath], "application/xml");
             resourceTitle = discussionDoc.querySelector("title")?.textContent || resourceTitle;
-            const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency")?.getAttribute("identifierRef");
+            const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency")?.getAttribute("identifierref");
             const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef2);
             if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute("href")]) {
+              const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute("identifier");
+              manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
               const settingsHref = matchingManifestResourceElement.getAttribute("href");
               const itemSettingsDoc = SHARED_PARSER.parseFromString(fileContents[settingsHref], "application/xml");
               if (itemSettingsDoc) {
@@ -272,6 +281,12 @@
               }
             }
           }
+        }
+        if (resourceClarifiedType === "file") {
+          continue;
+        }
+        if (resourceTitle === "untitled") {
+          console.log(resourceIdentifier);
         }
         allResources.push({
           identifier: resourceIdentifier,
@@ -304,7 +319,10 @@
           const moduleItemIdentifierRef = metaModuleItemElement.querySelector("identifierref")?.textContent;
           let clarifiedType = "tbd";
           const matchingResource = allResources.find((r) => r.identifier === moduleItemIdentifierRef);
-          clarifiedType = matchingResource?.clarifiedType || clarifiedType;
+          if (matchingResource) {
+            clarifiedType = matchingResource?.clarifiedType || contentType;
+            matchingResource.moduleTitle = moduleTitle;
+          }
           const moduleItem = {
             identifier: moduleItemIdentifier,
             title,
@@ -398,7 +416,7 @@
             const indentLevel = Number.isFinite(rawIndent) ? Math.max(0, Math.floor(rawIndent)) : 0;
             li.style.paddingLeft = `${indentLevel * 1.5}rem`;
             const itemClarifiedType = item.clarifiedType || "unspecified";
-            const typeDetails = getItemTypeDetails(itemClarifiedType);
+            const typeDetails = getItemTypeDetails(itemClarifiedType.toLowerCase());
             const itemStatusIndicator = item.status === "active" ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
             li.innerHTML = `
                             <div class="flex items-center flex-grow min-w-0">
@@ -446,7 +464,6 @@
           (acc[typeLabel] = acc[typeLabel] || []).push(item);
           return acc;
         }, {});
-        console.log(groupedByType);
         for (const [type, items] of Object.entries(groupedByType)) {
           const accordionDiv = document.createElement("div");
           accordionDiv.className = "border border-gray-200 rounded-lg";
@@ -466,7 +483,7 @@
             const li = document.createElement("li");
             li.className = "flex items-center justify-between text-gray-700 text-sm";
             const statusIndicator = item.status === "active" ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
-            const moduleIndicator = item.inModule ? createBadge("In Module", "blue") : createBadge("Not in Module", "gray");
+            const moduleIndicator = item.moduleTitle !== void 0 ? createBadge("In Module", "blue") : createBadge("Not in Module", "gray");
             li.innerHTML = `
                             <span class="truncate" title="${item.title}">${item.title}</span>
                             <div class="flex items-center flex-shrink-0 ml-4 space-x-2">
