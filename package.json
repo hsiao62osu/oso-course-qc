@@ -1,0 +1,23 @@
+{
+  "devDependencies": {
+    "@types/jszip": "^3.4.0",
+    "@types/lodash": "^4.17.20",
+    "axe-core": "^4.10.3",
+    "esbuild": "^0.25.9",
+    "http-server": "^14.1.1",
+    "jszip": "^3.10.1",
+    "lodash": "^4.17.21",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "build": "esbuild js/main.ts --bundle --outfile=js/main.js --platform=browser --format=iife --sourcemap",
+    "build:prod": "esbuild js/main.ts --bundle --outfile=js/main.js --platform=browser --format=iife --minify",
+    "watch": "esbuild js/main.ts --bundle --outfile=js/main.js --platform=browser --format=iife --sourcemap --watch",
+    "serve": "http-server -c-1 . -p 8080",
+    "start": "npm run build && npm run serve"
+  },
+  "files": [
+    "node_modules/axe-core/axe.d.ts"
+  ]
+}
