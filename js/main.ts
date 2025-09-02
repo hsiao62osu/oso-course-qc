@@ -13,29 +13,29 @@ document.addEventListener('DOMContentLoaded', () => {
     /* =======================================================================
         Types
         ======================================================================== */
-    type Resource = {
+    interface Resource {
         title: string,
         moduleTitle?: string,
         identifier: string,
-        identifierref?: string,
+        identifierref: string | null,
         href?: string
         status: string,
         clarifiedType: string,
         contentType: string,
-        analysisHref?: string,
-        analysisType?: string
+        analysisHref: string | null,
+        analysisType: string | null
     };
 
-    type Module = {
+    interface Module {
         title: string,
-        items: Array<ModuleItem>,
+        items: ModuleItem[],
         status: string,
     };
 
-    type ModuleItem = {
+    interface ModuleItem {
         identifier: string,
         title: string,
-        identifierRef?: string,
+        identifierRef: string | null,
         moduleTitle: string,
         status: string,
         indent: number,
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
         contentType: string,
     }
 
-    type VideoObject = {
+    interface VideoObject {
         title: string;
         platform: string;
         type: string;
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         parentResourceTitle: string;
     }
 
-    type FileObject = {
+    interface FileObject {
         href: string;
         parentAnchorText: string;
         parentResourceType: string;
@@ -63,33 +63,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const LINK_TYPES = ['osu', 'external', 'course', 'unknown'] as const;
     type LinkType = (typeof LINK_TYPES)[number];
 
-    type LinkObject = {
+    interface LinkObject {
         url: string;
         text: string;
-        itemTitle: string;
+        parentResourceTitle: string;
         type: LinkType;
     };
 
     type EnhancedAxeResult = Axe.Result & {
-        itemTitle: string,
-        itemType: string,
-        status: string,
-        moduleTitle: string,
+        type: String,
+        parentItemTitle: string,
+        parentItemType: string,
+        parentItemStatus: string,
+        parentItemModuleTitle: string,
     };
 
     type EnhancedAxeResults = Omit<Axe.AxeResults, 'violations' | 'passes' | 'incomplete' | 'inapplicable'> & {
-        violations: Array<EnhancedAxeResult>,
-        passes: Array<EnhancedAxeResult>,
-        incomplete: Array<EnhancedAxeResult>,
-        inapplicable: Array<EnhancedAxeResult>
+        violations: EnhancedAxeResult[],
+        passes: EnhancedAxeResult[],
+        incomplete: EnhancedAxeResult[],
+        inapplicable: EnhancedAxeResult[]
     };
 
     /* =========================================================================
        State & Shared Utilities
        ========================================================================= */
 
-    const allResources: Array<Resource> = [];
-    const allModules: Array<Module> = [];
+    const allResources: Resource[] = [];
+    const allModules: Module[] = [];
 
     /**
      * Stored summary of accessibility scan results.
@@ -101,18 +102,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const SHARED_PARSER = new DOMParser();
 
     // DOM element references (cached)
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const fileInfo = document.getElementById('file-info');
-    const fileNameEl = document.getElementById('file-name');
-    const fileSizeEl = document.getElementById('file-size');
-    const uploadSection = document.getElementById('upload-section');
-    const loadingSection = document.getElementById('loading-section');
-    const loadingStatus = document.getElementById('loading-status');
-    const progressBar = document.getElementById('progress-bar');
-    const resultsSection = document.getElementById('results-section');
-    const tabButtons = resultsSection.querySelectorAll('.tab-btn');
-    const tabContents = resultsSection.querySelectorAll('.tab-content');
+    const dropZone = document.getElementById('drop-zone')!;
+    const fileInput = document.getElementById('file-input')!;
+    const fileInfo = document.getElementById('file-info')!;
+    const fileNameEl = document.getElementById('file-name')!;
+    const fileSizeEl = document.getElementById('file-size')!;
+    const uploadSection = document.getElementById('upload-section')!;
+    const loadingSection = document.getElementById('loading-section')!;
+    const loadingStatus = document.getElementById('loading-status')!;
+    const progressBar = document.getElementById('progress-bar')!;
+    const resultsSection = document.getElementById('results-section')!;
+    const tabButtons = resultsSection.querySelectorAll('.tab-btn')!;
+    const tabContents = resultsSection.querySelectorAll('.tab-content')!;
 
     /* =========================================================================
        Small DOM helpers
@@ -239,12 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length) handleFile(files[0]);
+        const files = e.dataTransfer ? e.dataTransfer.files : null;
+        if (files && files.length) handleFile(files[0]);
     });
 
     fileInput.addEventListener('change', (e) => {
-        if ('files' in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
+        if (e.target && 'files' in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
             handleFile(e.target.files[0]);
         }
     });
@@ -306,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return fileContents;
         } catch (error) {
-            loadingStatus.textContent = `Error: ${error.message}`;
+            loadingStatus.textContent = `Error: ${(error as Error).message}`;
             progressBar.style.backgroundColor = '#ef4444';
             throw error;
         }
@@ -374,16 +375,16 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error("imsmanifest.xml not found in the archive.");
         }
         const manifestFileContentParsed = SHARED_PARSER.parseFromString(manifestFileContent, "application/xml");
-        const manifestSupportingResourceElements: Array<string> = [];
+        const manifestSupportingResourceElements: string[] = [];
 
         // Gather all manifest <resource> elements
         for (const manifestResourceElement of manifestFileContentParsed.getElementsByTagName("resource")) {
-            const resourceIdentifier = manifestResourceElement.getAttribute("identifier");
+            const resourceIdentifier = manifestResourceElement.getAttribute("identifier")!;
             const resourceHref = manifestResourceElement.getAttribute("href");
-            const resourceType = manifestResourceElement.getAttribute("type");
+            const resourceType = manifestResourceElement.getAttribute("type")!;
 
             // Skip supporting element
-            if (manifestSupportingResourceElements.includes(resourceIdentifier)) continue;
+            if (resourceIdentifier && manifestSupportingResourceElements.includes(resourceIdentifier)) continue;
 
             // Skip several types of resources:LTIs, links in modules, and qustion banks (for now)
             if (
@@ -410,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isPage = resourceType === 'webcontent' && resourceHref && resourceHref.startsWith('wiki_content/');
             const isFile = resourceType === 'webcontent' && resourceHref && resourceHref.startsWith('web_resources/');
 
-            let resourceClarifiedType = 'tbd';
+            let resourceClarifiedType: string | null = null;
             let resourceIdentifierRef: string | null = null;
 
             // TODO: A lot of refactoring opportunities here
@@ -436,13 +437,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const assignmentHtmlPath = Object.keys(fileContents).find(fileName => fileName.startsWith(`${resourceIdentifier}/`) && fileName.endsWith('.html'));
                 if (assignmentHtmlPath) resourceAnalysisHref = assignmentHtmlPath;
             } else if (isQuizOrSurvey) {
-                const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')?.getAttribute("identifierref");
+                const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')!.getAttribute("identifierref")!;
                 const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef);
-                if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')]) {
+
+                if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')!]) {
                     const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute('identifier');
+                    if (matchingManifestResourceElementIdentifier === null) throw new Error("matchingManifestResourceElementIdentifier should NOT be null.");
                     manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
+
                     resourceAnalysisHref = matchingManifestResourceElement.getAttribute('href');
                     resourceAnalysisType = 'xml';
+                    if (resourceAnalysisHref === null) throw new Error('resourceAnalysisHref should NOT be null.');
+
                     const itemMetaDoc = SHARED_PARSER.parseFromString(fileContents[resourceAnalysisHref], "application/xml");
                     if (itemMetaDoc) {
                         resourceTitle = itemMetaDoc.querySelector('title')?.textContent || resourceTitle;
@@ -464,14 +470,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const discussionDoc = SHARED_PARSER.parseFromString(fileContents[discussionXmlPath], "application/xml");
                     resourceTitle = discussionDoc.querySelector('title')?.textContent || resourceTitle;
 
-                    const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')?.getAttribute("identifierref");
+                    const resourceIdentifierRef = manifestResourceElement.querySelector('dependency')!.getAttribute("identifierref")!;
                     const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef);
 
-                    if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')]) {
+                    if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute('href')!]) {
                         const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute('identifier');
+                        if (matchingManifestResourceElementIdentifier === null) throw new Error("matchingManifestResourceElementIdentifier should NOT be null.");
                         manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
 
                         const settingsHref = matchingManifestResourceElement.getAttribute('href');
+                        if (settingsHref === null) throw new Error('settingsHref should NOT be null.');
+
                         const itemSettingsDoc = SHARED_PARSER.parseFromString(fileContents[settingsHref], "application/xml");
                         if (itemSettingsDoc) {
                             resourceStatus = itemSettingsDoc.querySelector('workflow_state')?.textContent === 'active' ? 'active' : 'unpublished';
@@ -484,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (resourceClarifiedType === 'file') {
+            if (!resourceClarifiedType || resourceClarifiedType === 'file') {
                 continue;
             }
             allResources.push({
@@ -508,19 +517,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const moduleMetaFileContentParsed = SHARED_PARSER.parseFromString(metaModuleFileContent, "application/xml");
         const metaModuleElements = Array.from(moduleMetaFileContentParsed.querySelectorAll("module"));
         metaModuleElements.forEach(metaModuleElement => {
-            const moduleItems: Array<ModuleItem> = [];
+            const moduleItems: ModuleItem[] = [];
 
-            const moduleTitle = metaModuleElement.querySelector('title')?.textContent || 'Untitled Module';
+            const moduleTitle = metaModuleElement.querySelector('title')?.textContent!;
             const moduleStatus = metaModuleElement.querySelector('workflow_state')?.textContent === 'active' ? 'active' : 'unpublished';
 
             const metaModuleItemElements = Array.from(metaModuleElement.querySelectorAll('item'));
             metaModuleItemElements.forEach(metaModuleItemElement => {
-                const moduleItemIdentifier = metaModuleItemElement.getAttribute('identifier');
-                const indent = parseInt(metaModuleItemElement.querySelector('indent')?.textContent || '0', 10);
-                const status = metaModuleItemElement.querySelector('workflow_state')?.textContent || 'unknown';
-                const contentType = metaModuleItemElement.querySelector('content_type')?.textContent || 'unknown';
-                const title = metaModuleItemElement.querySelector('title')?.textContent;
-                const moduleItemIdentifierRef = metaModuleItemElement.querySelector('identifierref')?.textContent;
+                const moduleItemIdentifier = metaModuleItemElement.getAttribute('identifier')!;
+                const indent = parseInt(metaModuleItemElement.querySelector('indent')?.textContent!, 10);
+                const status = metaModuleItemElement.querySelector('workflow_state')?.textContent!;
+                const contentType = metaModuleItemElement.querySelector('content_type')?.textContent!;
+                const title = metaModuleItemElement.querySelector('title')?.textContent!;
+                const moduleItemIdentifierRef = metaModuleItemElement.querySelector('identifierref')?.textContent || null;
 
                 let clarifiedType = 'tbd';
 
@@ -576,7 +585,6 @@ document.addEventListener('DOMContentLoaded', () => {
          * Return icon & label given a clarified type.
          * Kept implementation and SVGs identical to original to avoid behavioral changes.
          */
-        // TODO: These likely need to be refactored
         function getItemTypeDetails(type: string): { icon: string, label: string } {
             const iconClass = "w-5 h-5 mr-3 text-gray-500 flex-shrink-0";
             let details = {
@@ -616,8 +624,8 @@ document.addEventListener('DOMContentLoaded', () => {
          * Render the course structure accordion.
          * Implementation mirrors original behavior.
          */
-        function displayModules(modules: Array<Module>) {
-            const container = document.getElementById('course-structure');
+        function displayModules(modules: Module[]) {
+            const container = document.getElementById('course-structure')!;
             container.innerHTML = '';
             if (!modules.length) {
                 container.innerHTML = '<p class="text-gray-500">No course structure found in manifest.</p>';
@@ -697,11 +705,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const icon = button.querySelector('svg');
 
                     if (content instanceof HTMLElement && icon) {
-                        if (content.style.maxHeight) {
-                            content.style.maxHeight = null;
+                        if (content.style.maxHeight.charAt(0) !== '0') {
+                            content.style.maxHeight = '0px';
                             icon.classList.remove('rotate-180');
                         } else {
-                            content.style.maxHeight = content.scrollHeight + "px";
+                            content.style.maxHeight = 'fit-content';
                             icon.classList.add('rotate-180');
                         }
                     }
@@ -711,10 +719,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /**
          * Render grouped course content accordion (by type).
-         * Mirrors original implementation.     */
-        // TODO: More robust type checking f0r contenItem
-        function displayCourseContent(contentItems: Array<any>) {
-            const container = document.getElementById('course-content-list');
+         */
+        function displayCourseContent(contentItems: Resource[]) {
+            const container = document.getElementById('course-content-list')!;
             container.innerHTML = '';
             if (!contentItems.length) {
                 container.innerHTML = '<p class="text-gray-500">No content items found.</p>';
@@ -725,9 +732,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const typeLabel = getItemTypeDetails(item.clarifiedType).label;
                 (acc[typeLabel] = acc[typeLabel] || []).push(item);
                 return acc;
-            }, {});
+            }, {} as { [key: string]: Resource[] });
 
-            // TODO: What is items?
             for (const [type, items] of Object.entries(groupedByType)) {
                 const accordionDiv = document.createElement('div');
                 accordionDiv.className = 'border border-gray-200 rounded-lg';
@@ -735,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const button = document.createElement('button');
                 button.className = 'accordion-header w-full flex justify-between items-center p-4 text-left font-semibold text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none';
                 button.innerHTML = `
-                        <span>${type} (${(items as Array<any>).length})</span>
+                        <span>${type} (${(items as any[]).length})</span>
                         <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     `;
 
@@ -746,8 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ul = document.createElement('ul');
                 ul.className = 'space-y-3';
 
-                // TODO: What is items?
-                (items as Array<any>).sort((a, b) => a.title.localeCompare(b.title)).forEach(item => {
+                items.sort((a, b) => a.title.localeCompare(b.title)).forEach(item => {
                     const li = document.createElement('li');
                     li.className = 'flex items-center justify-between text-gray-700 text-sm';
                     const statusIndicator = item.status === 'active' ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
@@ -774,13 +779,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 button.addEventListener('click', () => {
                     const content = button.nextElementSibling;
                     const icon = button.querySelector('svg');
-                    // TODO: Just in case
                     if (content instanceof HTMLElement && icon) {
-                        if (content.style.maxHeight) {
-                            content.style.maxHeight = null;
+                        if (content.style.maxHeight.charAt(0) !== '0') {
+                            content.style.maxHeight = '0px';
                             icon.classList.remove('rotate-180');
                         } else {
-                            content.style.maxHeight = content.scrollHeight + "px";
+                            content.style.maxHeight = 'fit-content';
                             icon.classList.add('rotate-180');
                         }
                     }
@@ -796,11 +800,11 @@ document.addEventListener('DOMContentLoaded', () => {
          * Analyze provided items: extract links/files/videos and run accessibility checks.
          * items - items to analyze (with href and analysisType)
          */
-        // Todo: More robust type checking for item
-        async function analyzeContent(fileContents: { [key: string]: string }, items: Array<Resource>) {
-            let allLinks: Array<LinkObject> = [], allFiles: Array<FileObject> = [], allVideos: Array<VideoObject> = [];
+        async function analyzeContent(fileContents: { [key: string]: string }, items: Resource[]) {
+            let allLinks: LinkObject[] = [], allFiles: FileObject[] = [], allVideos: VideoObject[] = [];
 
             for (const item of items) {
+                if (!item.analysisHref) continue
                 const content = fileContents[item.analysisHref];
                 if (!content) continue;
 
@@ -824,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 allVideos.push(...findVideos(doc, item));
             }
 
-            // await runAndDisplayAccessibilityChecks(items, fileContents);
+            await runAndDisplayAccessibilityChecks(items, fileContents);
             await checkAndDisplayLinks(allLinks);
             displayFileAttachments(allFiles);
             displayVideos(allVideos);
@@ -833,21 +837,21 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Run axe accessibility checks on items and prepare data for the accessibility tab.
          */
-        // TODO: More robust type checking
-        async function runAndDisplayAccessibilityChecks(items: Array<any>, fileContents: { [key: string]: string }) {
-            let allResults: EnhancedAxeResults;
+        async function runAndDisplayAccessibilityChecks(items: Resource[], fileContents: { [key: string]: string }) {
+            let allResults: EnhancedAxeResults | null = null;
 
             for (const item of items) {
-                const content = fileContents[item.href];
+                if (!item.analysisHref) continue;
+                const content = fileContents[item.analysisHref];
                 if (!content) continue;
 
                 let doc: Document;
+
                 if (item.analysisType === 'xml') {
                     const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
                     const description = xmlDoc.querySelector("description");
                     const htmlContent = description ? description.textContent : '';
                     doc = SHARED_PARSER.parseFromString(htmlContent, "text/html");
-
                 } else if (item.analysisType === 'discussion_xml') {
                     const xmlDoc = SHARED_PARSER.parseFromString(content, "application/xml");
                     const text = xmlDoc.querySelector("text");
@@ -866,25 +870,36 @@ document.addEventListener('DOMContentLoaded', () => {
                             };
                             const results = await axe.run(doc.body.querySelectorAll('*'), axeOptions);
 
-                            const addMetadata = (issue: Axe.Result) => ({
+                            const addMetadata = (type: string, issue: Axe.Result) => ({
                                 ...issue,
-                                itemTitle: item.title,
-                                itemType: getItemTypeDetails(item.clarifiedType).label,
-                                status: item.status,
-                                moduleTitle: item.moduleTitle
+                                type,
+                                parentItemTitle: item.title,
+                                parentItemType: getItemTypeDetails(item.clarifiedType).label,
+                                parentItemStatus: item.status,
+                                parentItemModuleTitle: item.moduleTitle
                             }) as EnhancedAxeResult;
 
-                            allResults.violations.push(...results.violations.map(addMetadata));
-                            allResults.passes.push(...results.passes.map(addMetadata));
-                            allResults.incomplete.push(...results.incomplete.map(addMetadata));
-                            allResults.inapplicable.push(...results.inapplicable.map(addMetadata));
+                            // If allResults hasn't been initialized yet, do so now
+                            if (allResults === null) allResults = {
+                                ...results,
+                                violations: [],
+                                passes: [],
+                                incomplete: [],
+                                inapplicable: []
+                            };
+
+                            allResults.violations.push(...results.violations.map(issue => addMetadata('violations', issue)));
+                            allResults.passes.push(...results.passes.map(issue => addMetadata('passes', issue)));
+                            allResults.incomplete.push(...results.incomplete.map(issue => addMetadata('incomplete', issue)));
+                            allResults.inapplicable.push(...results.inapplicable.map(issue => addMetadata('inapplicable', issue)));
                         }
                     } catch (e) {
-                        console.warn(`Accessibility scan skipped for ${item.title}: ${e.message}`);
+                        console.warn(`Accessibility scan skipped for ${item.title}: ${(e as Error).message}`);
                     }
                 }
             }
 
+            if (!allResults) throw new Error('allResults should NOT be null.');
             accessibilityData = allResults;
 
             setupAccessibilityTab(accessibilityData, items);
@@ -897,9 +912,8 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Build the accessibility controls and wire up filters and sorting.
          */
-        // TODO: More robust type checking - these are axe results
-        function setupAccessibilityTab(results: EnhancedAxeResults, allScannedItems: Array<any>) {
-            const controlsContainer = document.getElementById('accessibility-controls');
+        function setupAccessibilityTab(results: EnhancedAxeResults, allScannedItems: Resource[]) {
+            const controlsContainer = document.getElementById('accessibility-controls')!;
             controlsContainer.innerHTML = '';
 
             // Create grid for filters
@@ -926,7 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.id = filterId;
-                checkbox.dataset.category = cat.name.toLowerCase();
+                checkbox.dataset['category'] = cat.name.toLowerCase();
                 checkbox.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
                 if (cat.name === 'Violations') checkbox.checked = true;
 
@@ -943,7 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
             filterGrid.appendChild(resultTypeContainer);
 
             // 2. Item Type Filters
-            const allItemTypes = [...new Set([...results.violations, ...results.passes].map(r => r.itemType))];
+            const allItemTypes = [...new Set([...results.violations, ...results.passes].map(r => r.parentItemType))];
             if (allItemTypes.length > 1) {
                 const itemTypeContainer = document.createElement('div');
                 itemTypeContainer.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-2">Filter by Item Type:</label>`;
@@ -958,7 +972,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.id = filterId;
-                    checkbox.dataset.itemType = type;
+                    checkbox.dataset['itemType'] = type;
                     checkbox.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
                     checkbox.checked = true;
 
@@ -1036,48 +1050,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Add debug accordion listing scanned items (mirrors original)
             const debugAccordion = createDebugAccordion(allScannedItems);
-            document.getElementById('accessibility-results').appendChild(debugAccordion);
+            document.getElementById('accessibility-results')!.appendChild(debugAccordion);
         }
 
         /**
          * Render accessibility results honoring filters and sort control.
          */
         function renderAccessibilityResults() {
-            const resultsContainer = document.getElementById('accessibility-results');
+            const resultsContainer = document.getElementById('accessibility-results')!;
             resultsContainer.innerHTML = '';
 
-            const selectedResultTypes = Array.from(document.querySelectorAll('#result-type-filters input:checked')).map(cb => (cb as HTMLInputElement).dataset.category);
+            const selectedResultTypes = Array.from(document.querySelectorAll('#result-type-filters input:checked')).map(cb => (cb as HTMLInputElement).dataset['category']);
 
             const itemTypeFilters = document.querySelectorAll('#item-type-filters input');
             const selectedItemTypes = Array.from(itemTypeFilters).length > 0
-                ? Array.from(itemTypeFilters).filter(cb => (cb as HTMLInputElement).checked).map(cb => (cb as HTMLInputElement).dataset.itemType)
+                ? Array.from(itemTypeFilters).filter(cb => (cb as HTMLInputElement).checked).map(cb => (cb as HTMLInputElement).dataset['itemType'])
                 : null;
 
-            const selectedStatuses = Array.from(document.querySelectorAll('#status-filters input:checked')).map(cb => (cb as HTMLInputElement).dataset.status);
+            const selectedStatuses = Array.from(document.querySelectorAll('#status-filters input:checked')).map(cb => (cb as HTMLInputElement).dataset['status']);
 
             const inModule = (document.getElementById('filter-module-in') as HTMLInputElement)?.checked;
             const notInModule = (document.getElementById('filter-module-in') as HTMLInputElement)?.checked;
 
-            let filteredResults: Array<EnhancedAxeResult> = [];
+            let filteredResults: EnhancedAxeResult[] = [];
             selectedResultTypes.forEach(type => {
-                if (accessibilityData[type]) filteredResults.push(...accessibilityData[type]);
+                if (!type) return;
+                const results = accessibilityData[type as keyof EnhancedAxeResults];
+                if (Array.isArray(results)) {
+                    // TS now knows results is an array at runtime; assert element type
+                    filteredResults.push(...(results as EnhancedAxeResult[]));
+                }
+                // if (type && type in accessibilityData) filteredResults.push(...accessibilityData[type as keyof EnhancedAxeResults]);
             });
 
             filteredResults = filteredResults.filter(result => {
-                const itemTypeMatch = selectedItemTypes ? selectedItemTypes.includes(result.itemType) : true;
-                const statusMatch = selectedStatuses.includes(result.status);
-                const inModuleMatch = inModule && result.moduleTitle;
-                const notInModuleMatch = notInModule && !result.moduleTitle;
+                const itemTypeMatch = selectedItemTypes ? selectedItemTypes.includes(result.parentItemType) : true;
+                const statusMatch = selectedStatuses.includes(result.parentItemStatus);
+                const inModuleMatch = inModule && result.parentItemModuleTitle;
+                const notInModuleMatch = notInModule && !result.parentItemModuleTitle;
                 return itemTypeMatch && statusMatch && (inModuleMatch || notInModuleMatch);
             });
 
             const groupedByItem = filteredResults.reduce((acc, issue) => {
-                (acc[issue.itemTitle] = acc[issue.itemTitle] || []).push(issue);
+                (acc[issue.parentItemTitle] = acc[issue.parentItemTitle] || []).push(issue);
                 return acc;
-            }, {});
-
-            // TODO: More robust type handling
-            console.log(groupedByItem);
+            }, {} as { [key: string]: EnhancedAxeResult[] });
 
             const sortValue = (document.getElementById('sort-select') as HTMLSelectElement)?.value || 'name-asc';
             const sortedItemTitles = Object.keys(groupedByItem).sort((a, b) => {
@@ -1100,7 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Create an accordion block for a single item and its issues.
          */
-        function createItemAccordion(itemTitle: string, issues: Array<EnhancedAxeResult>): HTMLElement {
+        function createItemAccordion(itemTitle: string, issues: EnhancedAxeResult[]): HTMLElement {
             const firstIssue = issues[0];
             const accordionDiv = document.createElement('div');
             accordionDiv.className = 'border border-gray-200 rounded-lg';
@@ -1108,17 +1125,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const button = document.createElement('button');
             button.className = 'accordion-header w-full flex justify-between items-center p-3 text-left text-sm font-medium text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
-            const itemStatusIndicator = firstIssue.status === 'active'
+            const itemStatusIndicator = firstIssue.parentItemStatus === 'active'
                 ? DEFAULT_BADGES.status.published
                 : DEFAULT_BADGES.status.unpublished;
 
             button.innerHTML = `
                 <div class="flex-grow min-w-0">
                     <p class="truncate font-semibold">${itemTitle}</p>
-                    <p class="text-xs text-gray-500 truncate">Module: ${firstIssue.moduleTitle || 'N/A'}</p>
+                    <p class="text-xs text-gray-500 truncate">Module: ${firstIssue.parentItemModuleTitle || 'N/A'}</p>
                 </div>
                 <div class="flex items-center flex-shrink-0 ml-4 space-x-2">
-                    <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-md">${firstIssue.itemType}</span>
+                    <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-md">${firstIssue.parentItemType}</span>
                     ${itemStatusIndicator}
                     <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
@@ -1141,11 +1158,11 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', () => {
                 const icon = button.querySelector('svg');
                 if (content && icon) {
-                    if (content.style.maxHeight) {
-                        content.style.maxHeight = null; // Collapse
+                    if (content.style.maxHeight.charAt(0) !== '0') {
+                        content.style.maxHeight = '0px'; // Collapse
                         icon.classList.remove('rotate-180');
                     } else {
-                        content.style.maxHeight = 'none'; // Expand to fit content
+                        content.style.maxHeight = 'fit-content'; // Expand to fit content
                         icon.classList.add('rotate-180');
                     }
                 }
@@ -1164,13 +1181,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const button = document.createElement('button');
             button.className = 'accordion-header w-full flex justify-between items-center p-2 text-left text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none';
 
+        
+            let issueTypeIndicator: string;
+            switch (issue.type) {
+                case 'violations':
+                    issueTypeIndicator = createBadge('Violation', 'red');
+                    break;  
+                case 'passes':
+                    issueTypeIndicator = createBadge('Pass', 'green');
+                    break;
+                case 'incomplete':
+                    issueTypeIndicator = createBadge('Incomplete', 'yellow');
+                    break;
+                default:
+                    issueTypeIndicator = createBadge('Other', 'gray');
+                    break;
+            }
+
             button.innerHTML = `
-                    <span class="truncate pr-4">${_.escape(issue.help)}</span>
+                    <span class="truncate pr-4">${issueTypeIndicator} ${_.escape(issue.help)}</span>
                     <div class="flex items-center flex-shrink-0 ml-4">
-                        ${DEFAULT_BADGES.impact[issue.impact] || ''}
+                        ${DEFAULT_BADGES.impact[issue.impact!] || ''}
                         <svg class="w-4 h-4 transform transition-transform ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 `;
+
+
 
             const content = document.createElement('div');
             content.className = 'accordion-content bg-white';
@@ -1182,6 +1218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nodeHtml = (issue.nodes && issue.nodes[0] && issue.nodes[0].html) ? issue.nodes[0].html.replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
             const nodeTargets = (issue.nodes && issue.nodes[0] && issue.nodes[0].target) ? issue.nodes[0].target.join(', ') : '';
 
+            // TODO: Add feature to show issue type
             innerContent.innerHTML = `
                     <div>
                         <p class="font-semibold text-gray-800">Description:</p>
@@ -1206,11 +1243,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 const icon = button.querySelector('svg');
                 if (content && icon) {
-                    if (content.style.maxHeight) {
-                        content.style.maxHeight = null;
+                    if (content.style.maxHeight.charAt(0) !== '0') {
+                        content.style.maxHeight = '0px';
                         icon.classList.remove('rotate-180');
                     } else {
-                        content.style.maxHeight = content.scrollHeight + "px";
+                        content.style.maxHeight = 'fit-content';
                         icon.classList.add('rotate-180');
                     }
                 }
@@ -1222,8 +1259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Create debug accordion listing scanned items (keeps original behavior).
          */
-        // TODO: More robust type checking - these are for accessibility scan
-        function createDebugAccordion(scannedItems: Array<any>): HTMLElement {
+        function createDebugAccordion(scannedItems: Resource[]): HTMLElement {
             const accordionDiv = document.createElement('div');
             accordionDiv.className = 'border border-gray-200 rounded-lg mt-4';
 
@@ -1253,11 +1289,11 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', () => {
                 const icon = button.querySelector('svg');
                 if (content && icon) {
-                    if (content.style.maxHeight) {
-                        content.style.maxHeight = null;
+                    if (content.style.maxHeight.charAt(0) !== '0') {
+                        content.style.maxHeight = '0px';
                         icon.classList.remove('rotate-180');
                     } else {
-                        content.style.maxHeight = content.scrollHeight + "px";
+                        content.style.maxHeight = 'fit-content';
                         icon.classList.add('rotate-180');
                     }
                 }
@@ -1274,8 +1310,8 @@ document.addEventListener('DOMContentLoaded', () => {
          * Display results for external link inventory.
          * Note: original code simulated link checks due to CORS; preserved here.
          */
-        async function checkAndDisplayLinks(links: Array<LinkObject>) {
-            const container = document.getElementById('link-inventory-results');
+        async function checkAndDisplayLinks(links: LinkObject[]) {
+            const container = document.getElementById('link-inventory-results')!;
             // TODO: Add this back
             const summaryContainer = document.getElementById('link-summary');
 
@@ -1299,7 +1335,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.id = filterId;
-                checkbox.dataset.type = type;
+                checkbox.dataset['type'] = type;
                 checkbox.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
                 checkbox.checked = true; // Check all by default
 
@@ -1317,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(filterContainer);
 
             // Function to display links
-            const displayLinks = (filteredLinks: Array<LinkObject>) => {
+            const displayLinks = (filteredLinks: LinkObject[]) => {
                 let contentDiv = container.querySelector('.space-y-3');
                 if (!contentDiv) {
                     contentDiv = document.createElement('div');
@@ -1335,6 +1371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     osu: createBadge('OSU', 'red'),
                     external: createBadge('External', 'blue'),
                     course: createBadge('Course', 'yellow'),
+                    unknown: createBadge('Unknown', 'indigo'),
                 };
 
                 for (const link of filteredLinks) {
@@ -1345,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p class="font-medium text-gray-800 truncate" title="${link.text}">${link.text}</p>
                         <p aria-description="link type">${linkTypeBadges[link.type]}</p>
                         <p class="text-sm text-gray-500"><strong>Target</strong>: <a href="${link.url}" target="_blank"><u>${link.url}</u></a></p>
-                        <p class="text-sm text-gray-500"><strong>Found in</strong>: ${link.itemTitle}</p>
+                        <p class="text-sm text-gray-500"><strong>Found in</strong>: ${link.parentResourceTitle}</p>
                     </div>
                 `;
                     contentDiv.appendChild(linkDiv);
@@ -1354,7 +1391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Filter links based on selected types
             const filterLinks = () => {
-                const selectedTypes = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => (cb as HTMLInputElement).dataset.type);
+                const selectedTypes = Array.from(filterCheckboxes.querySelectorAll('input:checked')).map(cb => (cb as HTMLInputElement).dataset['type']);
                 const filteredLinks = selectedTypes.length === 0 ? [] : links.filter(link => selectedTypes.includes(link.type));
                 displayLinks(filteredLinks);
             };
@@ -1370,9 +1407,9 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Display file attachments found in content.
          */
-        function displayFileAttachments(files: Array<FileObject>) {
-            const container = document.getElementById('file-attachment-results');
-            const summaryContainer = document.getElementById('file-attachment-summary');
+        function displayFileAttachments(files: FileObject[]) {
+            const container = document.getElementById('file-attachment-results')!;
+            const summaryContainer = document.getElementById('file-attachment-summary')!;
             summaryContainer.innerHTML = `Attachments found: &nbsp; ${createBadge(files.length.toString(), 'purple')}`;
 
             if (files.length === 0) {
@@ -1385,7 +1422,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const liDiv = document.createElement('li');
                 liDiv.className = 'p-3 rounded-md bg-gray-50 flex items-start space-x-3';
                 liDiv.innerHTML = `
-                <div class="flex-grow min-w-0">
+                <div>
                     <p class="font-medium text-gray-800 truncate" title="${file.parentAnchorText}">${file.parentAnchorText}</p>
                     <p class="text-sm text-gray-500"><strong>In Item</strong>: ${createBadge(capitalize(file.parentResourceType))} ${file.parentResourceTitle}</p>
                     <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.parentResourceModuleTitle}</p>
@@ -1398,9 +1435,9 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Display video findings (platform & transcript presence).
          */
-        function displayVideos(videos: Array<VideoObject>) {
-            const container = document.getElementById('video-results');
-            const summaryContainer = document.getElementById('video-summary');
+        function displayVideos(videos: VideoObject[]) {
+            const container = document.getElementById('video-results')!;
+            const summaryContainer = document.getElementById('video-summary')!;
 
             const transcriptOrCaptionMentioned = videos.filter(v => v.transcriptOrCaptionMentioned).length;
             const noTranscriptOrCaptionMentioned = videos.length - transcriptOrCaptionMentioned;
@@ -1449,10 +1486,10 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Find external links in a document and return structured items.
          */
-        // TODO: More robust type checking for item
-        function findLinks(doc: Document, item: Resource): Array<LinkObject> {
+        // TODO: Fix formatting issues
+        function findLinks(doc: Document, item: Resource): LinkObject[] {
 
-            const links = Array<LinkObject>();
+            const links: LinkObject[] = [];
             if (!doc || !doc.querySelectorAll) return links;
             doc.querySelectorAll('a[href]').forEach(a => {
                 const href = (a as HTMLAnchorElement).getAttribute('href');
@@ -1465,7 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         type = 'external'
                     }
-                    links.push({ url: href, text: a.textContent.trim(), itemTitle: item.title, type: type as LinkType });
+                    links.push({ url: href, text: a.textContent.trim(), parentResourceTitle: item.title, type: type as LinkType });
                 }
             });
             return links;
@@ -1474,9 +1511,9 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Find file attachment links in a document.
          */
-        // TODO: More robust type checking
-        function findFileAttachments(doc: Document, item: Resource): Array<FileObject> {
-            const files: Array<FileObject> = [];
+        // TODO: Refactor
+        function findFileAttachments(doc: Document, item: Resource): FileObject[] {
+            const files: FileObject[] = [];
 
             if (!doc || !doc.querySelectorAll) return files;
             doc.querySelectorAll('a.instructure_file_link, a.instructure_scribd_file').forEach(a => {
@@ -1494,8 +1531,8 @@ document.addEventListener('DOMContentLoaded', () => {
         /**
          * Find embedded iframes that correspond to supported video platforms.
          */
-        function findVideos(doc: Document, item: Resource): Array<VideoObject> {
-            const videos = Array<VideoObject>();
+        function findVideos(doc: Document, item: Resource): VideoObject[] {
+            const videos: VideoObject[] = [];
             if (!doc || !doc.querySelectorAll) return videos;
 
             // TODO: Future opportunity to refactor
@@ -1517,7 +1554,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const traverseRootTag = iframe.parentElement instanceof HTMLParagraphElement ? iframe.parentElement : iframe;
 
                     const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || '') + ' ' + (traverseRootTag.nextElementSibling?.innerHTML || '') + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || '')).toLowerCase();
-                    console.log(adjacentText);
 
                     const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
 
@@ -1542,7 +1578,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const traverseRootTag = a.parentElement instanceof HTMLParagraphElement ? a.parentElement : a;
 
                     const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || '') + ' ' + (traverseRootTag.nextElementSibling?.innerHTML || '') + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || '')).toLowerCase();
-                    console.log(adjacentText);
 
                     const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
 

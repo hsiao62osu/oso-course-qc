@@ -1,7 +1,12 @@
+"use strict";
 (() => {
   // js/main.ts
   document.addEventListener("DOMContentLoaded", () => {
+    ;
+    ;
+    ;
     const LINK_TYPES = ["osu", "external", "course", "unknown"];
+    ;
     const allResources = [];
     const allModules = [];
     let accessibilityData;
@@ -107,11 +112,11 @@
     dropZone.addEventListener("drop", (e) => {
       e.preventDefault();
       dropZone.classList.remove("dragover");
-      const files = e.dataTransfer.files;
-      if (files.length) handleFile(files[0]);
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (files && files.length) handleFile(files[0]);
     });
     fileInput.addEventListener("change", (e) => {
-      if ("files" in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
+      if (e.target && "files" in e.target && e.target.files instanceof FileList && e.target.files.length > 0) {
         handleFile(e.target.files[0]);
       }
     });
@@ -196,7 +201,7 @@
         const resourceIdentifier = manifestResourceElement.getAttribute("identifier");
         const resourceHref = manifestResourceElement.getAttribute("href");
         const resourceType = manifestResourceElement.getAttribute("type");
-        if (manifestSupportingResourceElements.includes(resourceIdentifier)) continue;
+        if (resourceIdentifier && manifestSupportingResourceElements.includes(resourceIdentifier)) continue;
         if (
           // LTIs
           resourceType === "imsbasiclti_xmlv1p3" || // Links in modules
@@ -214,7 +219,7 @@
         const isDiscussion = resourceType.includes("imsdt_xmlv1p1");
         const isPage = resourceType === "webcontent" && resourceHref && resourceHref.startsWith("wiki_content/");
         const isFile = resourceType === "webcontent" && resourceHref && resourceHref.startsWith("web_resources/");
-        let resourceClarifiedType = "tbd";
+        let resourceClarifiedType = null;
         let resourceIdentifierRef = null;
         if (isFile) {
           resourceClarifiedType = "file";
@@ -238,13 +243,15 @@
           const assignmentHtmlPath = Object.keys(fileContents).find((fileName) => fileName.startsWith(`${resourceIdentifier}/`) && fileName.endsWith(".html"));
           if (assignmentHtmlPath) resourceAnalysisHref = assignmentHtmlPath;
         } else if (isQuizOrSurvey) {
-          const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency")?.getAttribute("identifierref");
+          const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency").getAttribute("identifierref");
           const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef2);
           if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute("href")]) {
             const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute("identifier");
+            if (matchingManifestResourceElementIdentifier === null) throw new Error("matchingManifestResourceElementIdentifier should NOT be null.");
             manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
             resourceAnalysisHref = matchingManifestResourceElement.getAttribute("href");
             resourceAnalysisType = "xml";
+            if (resourceAnalysisHref === null) throw new Error("resourceAnalysisHref should NOT be null.");
             const itemMetaDoc = SHARED_PARSER.parseFromString(fileContents[resourceAnalysisHref], "application/xml");
             if (itemMetaDoc) {
               resourceTitle = itemMetaDoc.querySelector("title")?.textContent || resourceTitle;
@@ -265,12 +272,14 @@
             resourceAnalysisType = "discussion_xml";
             const discussionDoc = SHARED_PARSER.parseFromString(fileContents[discussionXmlPath], "application/xml");
             resourceTitle = discussionDoc.querySelector("title")?.textContent || resourceTitle;
-            const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency")?.getAttribute("identifierref");
+            const resourceIdentifierRef2 = manifestResourceElement.querySelector("dependency").getAttribute("identifierref");
             const matchingManifestResourceElement = findManifestResourceElementByIentifier(resourceIdentifierRef2);
             if (matchingManifestResourceElement && fileContents[matchingManifestResourceElement.getAttribute("href")]) {
               const matchingManifestResourceElementIdentifier = matchingManifestResourceElement.getAttribute("identifier");
+              if (matchingManifestResourceElementIdentifier === null) throw new Error("matchingManifestResourceElementIdentifier should NOT be null.");
               manifestSupportingResourceElements.push(matchingManifestResourceElementIdentifier);
               const settingsHref = matchingManifestResourceElement.getAttribute("href");
+              if (settingsHref === null) throw new Error("settingsHref should NOT be null.");
               const itemSettingsDoc = SHARED_PARSER.parseFromString(fileContents[settingsHref], "application/xml");
               if (itemSettingsDoc) {
                 resourceStatus = itemSettingsDoc.querySelector("workflow_state")?.textContent === "active" ? "active" : "unpublished";
@@ -282,7 +291,7 @@
             }
           }
         }
-        if (resourceClarifiedType === "file") {
+        if (!resourceClarifiedType || resourceClarifiedType === "file") {
           continue;
         }
         allResources.push({
@@ -304,16 +313,16 @@
       const metaModuleElements = Array.from(moduleMetaFileContentParsed.querySelectorAll("module"));
       metaModuleElements.forEach((metaModuleElement) => {
         const moduleItems = [];
-        const moduleTitle = metaModuleElement.querySelector("title")?.textContent || "Untitled Module";
+        const moduleTitle = metaModuleElement.querySelector("title")?.textContent;
         const moduleStatus = metaModuleElement.querySelector("workflow_state")?.textContent === "active" ? "active" : "unpublished";
         const metaModuleItemElements = Array.from(metaModuleElement.querySelectorAll("item"));
         metaModuleItemElements.forEach((metaModuleItemElement) => {
           const moduleItemIdentifier = metaModuleItemElement.getAttribute("identifier");
-          const indent = parseInt(metaModuleItemElement.querySelector("indent")?.textContent || "0", 10);
-          const status = metaModuleItemElement.querySelector("workflow_state")?.textContent || "unknown";
-          const contentType = metaModuleItemElement.querySelector("content_type")?.textContent || "unknown";
+          const indent = parseInt(metaModuleItemElement.querySelector("indent")?.textContent, 10);
+          const status = metaModuleItemElement.querySelector("workflow_state")?.textContent;
+          const contentType = metaModuleItemElement.querySelector("content_type")?.textContent;
           const title = metaModuleItemElement.querySelector("title")?.textContent;
-          const moduleItemIdentifierRef = metaModuleItemElement.querySelector("identifierref")?.textContent;
+          const moduleItemIdentifierRef = metaModuleItemElement.querySelector("identifierref")?.textContent || null;
           let clarifiedType = "tbd";
           const matchingResource = allResources.find((r) => r.identifier === moduleItemIdentifierRef);
           if (matchingResource) {
@@ -438,11 +447,11 @@
             const content = button.nextElementSibling;
             const icon = button.querySelector("svg");
             if (content instanceof HTMLElement && icon) {
-              if (content.style.maxHeight) {
-                content.style.maxHeight = null;
+              if (content.style.maxHeight.charAt(0) !== "0") {
+                content.style.maxHeight = "0px";
                 icon.classList.remove("rotate-180");
               } else {
-                content.style.maxHeight = content.scrollHeight + "px";
+                content.style.maxHeight = "fit-content";
                 icon.classList.add("rotate-180");
               }
             }
@@ -501,11 +510,11 @@
             const content = button.nextElementSibling;
             const icon = button.querySelector("svg");
             if (content instanceof HTMLElement && icon) {
-              if (content.style.maxHeight) {
-                content.style.maxHeight = null;
+              if (content.style.maxHeight.charAt(0) !== "0") {
+                content.style.maxHeight = "0px";
                 icon.classList.remove("rotate-180");
               } else {
-                content.style.maxHeight = content.scrollHeight + "px";
+                content.style.maxHeight = "fit-content";
                 icon.classList.add("rotate-180");
               }
             }
@@ -515,6 +524,7 @@
       async function analyzeContent(fileContents2, items) {
         let allLinks = [], allFiles = [], allVideos = [];
         for (const item of items) {
+          if (!item.analysisHref) continue;
           const content = fileContents2[item.analysisHref];
           if (!content) continue;
           let doc;
@@ -535,14 +545,16 @@
           allFiles.push(...findFileAttachments(doc, item));
           allVideos.push(...findVideos(doc, item));
         }
+        await runAndDisplayAccessibilityChecks(items, fileContents2);
         await checkAndDisplayLinks(allLinks);
         displayFileAttachments(allFiles);
         displayVideos(allVideos);
       }
       async function runAndDisplayAccessibilityChecks(items, fileContents2) {
-        let allResults;
+        let allResults = null;
         for (const item of items) {
-          const content = fileContents2[item.href];
+          if (!item.analysisHref) continue;
+          const content = fileContents2[item.analysisHref];
           if (!content) continue;
           let doc;
           if (item.analysisType === "xml") {
@@ -566,23 +578,32 @@
                   runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]
                 };
                 const results = await axe.run(doc.body.querySelectorAll("*"), axeOptions);
-                const addMetadata = (issue) => ({
+                const addMetadata = (type, issue) => ({
                   ...issue,
-                  itemTitle: item.title,
-                  itemType: getItemTypeDetails(item.clarifiedType).label,
-                  status: item.status,
-                  moduleTitle: item.moduleTitle
+                  type,
+                  parentItemTitle: item.title,
+                  parentItemType: getItemTypeDetails(item.clarifiedType).label,
+                  parentItemStatus: item.status,
+                  parentItemModuleTitle: item.moduleTitle
                 });
-                allResults.violations.push(...results.violations.map(addMetadata));
-                allResults.passes.push(...results.passes.map(addMetadata));
-                allResults.incomplete.push(...results.incomplete.map(addMetadata));
-                allResults.inapplicable.push(...results.inapplicable.map(addMetadata));
+                if (allResults === null) allResults = {
+                  ...results,
+                  violations: [],
+                  passes: [],
+                  incomplete: [],
+                  inapplicable: []
+                };
+                allResults.violations.push(...results.violations.map((issue) => addMetadata("violations", issue)));
+                allResults.passes.push(...results.passes.map((issue) => addMetadata("passes", issue)));
+                allResults.incomplete.push(...results.incomplete.map((issue) => addMetadata("incomplete", issue)));
+                allResults.inapplicable.push(...results.inapplicable.map((issue) => addMetadata("inapplicable", issue)));
               }
             } catch (e) {
               console.warn(`Accessibility scan skipped for ${item.title}: ${e.message}`);
             }
           }
         }
+        if (!allResults) throw new Error("allResults should NOT be null.");
         accessibilityData = allResults;
         setupAccessibilityTab(accessibilityData, items);
       }
@@ -608,7 +629,7 @@
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
           checkbox.id = filterId;
-          checkbox.dataset.category = cat.name.toLowerCase();
+          checkbox.dataset["category"] = cat.name.toLowerCase();
           checkbox.className = "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500";
           if (cat.name === "Violations") checkbox.checked = true;
           const label = document.createElement("label");
@@ -621,7 +642,7 @@
         });
         resultTypeContainer.appendChild(resultTypeFilters);
         filterGrid.appendChild(resultTypeContainer);
-        const allItemTypes = [...new Set([...results.violations, ...results.passes].map((r) => r.itemType))];
+        const allItemTypes = [...new Set([...results.violations, ...results.passes].map((r) => r.parentItemType))];
         if (allItemTypes.length > 1) {
           const itemTypeContainer = document.createElement("div");
           itemTypeContainer.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-2">Filter by Item Type:</label>`;
@@ -635,7 +656,7 @@
             const checkbox = document.createElement("input");
             checkbox.type = "checkbox";
             checkbox.id = filterId;
-            checkbox.dataset.itemType = type;
+            checkbox.dataset["itemType"] = type;
             checkbox.className = "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500";
             checkbox.checked = true;
             const label = document.createElement("label");
@@ -705,28 +726,31 @@
       function renderAccessibilityResults() {
         const resultsContainer = document.getElementById("accessibility-results");
         resultsContainer.innerHTML = "";
-        const selectedResultTypes = Array.from(document.querySelectorAll("#result-type-filters input:checked")).map((cb) => cb.dataset.category);
+        const selectedResultTypes = Array.from(document.querySelectorAll("#result-type-filters input:checked")).map((cb) => cb.dataset["category"]);
         const itemTypeFilters = document.querySelectorAll("#item-type-filters input");
-        const selectedItemTypes = Array.from(itemTypeFilters).length > 0 ? Array.from(itemTypeFilters).filter((cb) => cb.checked).map((cb) => cb.dataset.itemType) : null;
-        const selectedStatuses = Array.from(document.querySelectorAll("#status-filters input:checked")).map((cb) => cb.dataset.status);
+        const selectedItemTypes = Array.from(itemTypeFilters).length > 0 ? Array.from(itemTypeFilters).filter((cb) => cb.checked).map((cb) => cb.dataset["itemType"]) : null;
+        const selectedStatuses = Array.from(document.querySelectorAll("#status-filters input:checked")).map((cb) => cb.dataset["status"]);
         const inModule = document.getElementById("filter-module-in")?.checked;
         const notInModule = document.getElementById("filter-module-in")?.checked;
         let filteredResults = [];
         selectedResultTypes.forEach((type) => {
-          if (accessibilityData[type]) filteredResults.push(...accessibilityData[type]);
+          if (!type) return;
+          const results = accessibilityData[type];
+          if (Array.isArray(results)) {
+            filteredResults.push(...results);
+          }
         });
         filteredResults = filteredResults.filter((result) => {
-          const itemTypeMatch = selectedItemTypes ? selectedItemTypes.includes(result.itemType) : true;
-          const statusMatch = selectedStatuses.includes(result.status);
-          const inModuleMatch = inModule && result.moduleTitle;
-          const notInModuleMatch = notInModule && !result.moduleTitle;
+          const itemTypeMatch = selectedItemTypes ? selectedItemTypes.includes(result.parentItemType) : true;
+          const statusMatch = selectedStatuses.includes(result.parentItemStatus);
+          const inModuleMatch = inModule && result.parentItemModuleTitle;
+          const notInModuleMatch = notInModule && !result.parentItemModuleTitle;
           return itemTypeMatch && statusMatch && (inModuleMatch || notInModuleMatch);
         });
         const groupedByItem = filteredResults.reduce((acc, issue) => {
-          (acc[issue.itemTitle] = acc[issue.itemTitle] || []).push(issue);
+          (acc[issue.parentItemTitle] = acc[issue.parentItemTitle] || []).push(issue);
           return acc;
         }, {});
-        console.log(groupedByItem);
         const sortValue = document.getElementById("sort-select")?.value || "name-asc";
         const sortedItemTitles = Object.keys(groupedByItem).sort((a, b) => {
           if (sortValue === "name-asc") return a.localeCompare(b);
@@ -748,14 +772,14 @@
         accordionDiv.className = "border border-gray-200 rounded-lg";
         const button = document.createElement("button");
         button.className = "accordion-header w-full flex justify-between items-center p-3 text-left text-sm font-medium text-gray-800 bg-gray-50 hover:bg-gray-100 focus:outline-none";
-        const itemStatusIndicator = firstIssue.status === "active" ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
+        const itemStatusIndicator = firstIssue.parentItemStatus === "active" ? DEFAULT_BADGES.status.published : DEFAULT_BADGES.status.unpublished;
         button.innerHTML = `
                 <div class="flex-grow min-w-0">
                     <p class="truncate font-semibold">${itemTitle}</p>
-                    <p class="text-xs text-gray-500 truncate">Module: ${firstIssue.moduleTitle || "N/A"}</p>
+                    <p class="text-xs text-gray-500 truncate">Module: ${firstIssue.parentItemModuleTitle || "N/A"}</p>
                 </div>
                 <div class="flex items-center flex-shrink-0 ml-4 space-x-2">
-                    <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-md">${firstIssue.itemType}</span>
+                    <span class="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-md">${firstIssue.parentItemType}</span>
                     ${itemStatusIndicator}
                     <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                 </div>
@@ -774,11 +798,11 @@
         button.addEventListener("click", () => {
           const icon = button.querySelector("svg");
           if (content && icon) {
-            if (content.style.maxHeight) {
-              content.style.maxHeight = null;
+            if (content.style.maxHeight.charAt(0) !== "0") {
+              content.style.maxHeight = "0px";
               icon.classList.remove("rotate-180");
             } else {
-              content.style.maxHeight = "none";
+              content.style.maxHeight = "fit-content";
               icon.classList.add("rotate-180");
             }
           }
@@ -790,8 +814,23 @@
         accordionDiv.className = "border border-gray-200 rounded-lg";
         const button = document.createElement("button");
         button.className = "accordion-header w-full flex justify-between items-center p-2 text-left text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none";
+        let issueTypeIndicator;
+        switch (issue.type) {
+          case "violations":
+            issueTypeIndicator = createBadge("Violation", "red");
+            break;
+          case "passes":
+            issueTypeIndicator = createBadge("Pass", "green");
+            break;
+          case "incomplete":
+            issueTypeIndicator = createBadge("Incomplete", "yellow");
+            break;
+          default:
+            issueTypeIndicator = createBadge("Other", "gray");
+            break;
+        }
         button.innerHTML = `
-                    <span class="truncate pr-4">${_.escape(issue.help)}</span>
+                    <span class="truncate pr-4">${issueTypeIndicator} ${_.escape(issue.help)}</span>
                     <div class="flex items-center flex-shrink-0 ml-4">
                         ${DEFAULT_BADGES.impact[issue.impact] || ""}
                         <svg class="w-4 h-4 transform transition-transform ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -825,11 +864,11 @@
           e.stopPropagation();
           const icon = button.querySelector("svg");
           if (content && icon) {
-            if (content.style.maxHeight) {
-              content.style.maxHeight = null;
+            if (content.style.maxHeight.charAt(0) !== "0") {
+              content.style.maxHeight = "0px";
               icon.classList.remove("rotate-180");
             } else {
-              content.style.maxHeight = content.scrollHeight + "px";
+              content.style.maxHeight = "fit-content";
               icon.classList.add("rotate-180");
             }
           }
@@ -863,11 +902,11 @@
         button.addEventListener("click", () => {
           const icon = button.querySelector("svg");
           if (content && icon) {
-            if (content.style.maxHeight) {
-              content.style.maxHeight = null;
+            if (content.style.maxHeight.charAt(0) !== "0") {
+              content.style.maxHeight = "0px";
               icon.classList.remove("rotate-180");
             } else {
-              content.style.maxHeight = content.scrollHeight + "px";
+              content.style.maxHeight = "fit-content";
               icon.classList.add("rotate-180");
             }
           }
@@ -894,7 +933,7 @@
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
           checkbox.id = filterId;
-          checkbox.dataset.type = type;
+          checkbox.dataset["type"] = type;
           checkbox.className = "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500";
           checkbox.checked = true;
           const label = document.createElement("label");
@@ -923,7 +962,8 @@
           const linkTypeBadges = {
             osu: createBadge("OSU", "red"),
             external: createBadge("External", "blue"),
-            course: createBadge("Course", "yellow")
+            course: createBadge("Course", "yellow"),
+            unknown: createBadge("Unknown", "indigo")
           };
           for (const link of filteredLinks) {
             const linkDiv = document.createElement("div");
@@ -933,14 +973,14 @@
                         <p class="font-medium text-gray-800 truncate" title="${link.text}">${link.text}</p>
                         <p aria-description="link type">${linkTypeBadges[link.type]}</p>
                         <p class="text-sm text-gray-500"><strong>Target</strong>: <a href="${link.url}" target="_blank"><u>${link.url}</u></a></p>
-                        <p class="text-sm text-gray-500"><strong>Found in</strong>: ${link.itemTitle}</p>
+                        <p class="text-sm text-gray-500"><strong>Found in</strong>: ${link.parentResourceTitle}</p>
                     </div>
                 `;
             contentDiv.appendChild(linkDiv);
           }
         };
         const filterLinks = () => {
-          const selectedTypes = Array.from(filterCheckboxes.querySelectorAll("input:checked")).map((cb) => cb.dataset.type);
+          const selectedTypes = Array.from(filterCheckboxes.querySelectorAll("input:checked")).map((cb) => cb.dataset["type"]);
           const filteredLinks = selectedTypes.length === 0 ? [] : links.filter((link) => selectedTypes.includes(link.type));
           displayLinks(filteredLinks);
         };
@@ -962,7 +1002,7 @@
           const liDiv = document.createElement("li");
           liDiv.className = "p-3 rounded-md bg-gray-50 flex items-start space-x-3";
           liDiv.innerHTML = `
-                <div class="flex-grow min-w-0">
+                <div>
                     <p class="font-medium text-gray-800 truncate" title="${file.parentAnchorText}">${file.parentAnchorText}</p>
                     <p class="text-sm text-gray-500"><strong>In Item</strong>: ${createBadge(capitalize(file.parentResourceType))} ${file.parentResourceTitle}</p>
                     <p class="text-sm text-gray-500"><strong>In Module</strong>: ${file.parentResourceModuleTitle}</p>
@@ -1009,7 +1049,7 @@
         container.appendChild(ul);
       }
       function findLinks(doc, item) {
-        const links = Array();
+        const links = [];
         if (!doc || !doc.querySelectorAll) return links;
         doc.querySelectorAll("a[href]").forEach((a) => {
           const href = a.getAttribute("href");
@@ -1022,7 +1062,7 @@
             } else {
               type = "external";
             }
-            links.push({ url: href, text: a.textContent.trim(), itemTitle: item.title, type });
+            links.push({ url: href, text: a.textContent.trim(), parentResourceTitle: item.title, type });
           }
         });
         return links;
@@ -1042,7 +1082,7 @@
         return files;
       }
       function findVideos(doc, item) {
-        const videos = Array();
+        const videos = [];
         if (!doc || !doc.querySelectorAll) return videos;
         doc.querySelectorAll("iframe").forEach((iframe) => {
           const src = (iframe.src || "").toLowerCase();
@@ -1058,7 +1098,6 @@
           if (platform != "Unknown") {
             const traverseRootTag = iframe.parentElement instanceof HTMLParagraphElement ? iframe.parentElement : iframe;
             const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || "") + " " + (traverseRootTag.nextElementSibling?.innerHTML || "") + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || "")).toLowerCase();
-            console.log(adjacentText);
             const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
             videos.push({ title, platform, src, type, transcriptOrCaptionMentioned, parentResourceTitle: item.title });
           }
@@ -1078,7 +1117,6 @@
           if (platform != "Unknown") {
             const traverseRootTag = a.parentElement instanceof HTMLParagraphElement ? a.parentElement : a;
             const adjacentText = ((traverseRootTag.previousElementSibling?.innerHTML || "") + " " + (traverseRootTag.nextElementSibling?.innerHTML || "") + (traverseRootTag.nextElementSibling?.nextElementSibling?.innerHTML || "")).toLowerCase();
-            console.log(adjacentText);
             const transcriptOrCaptionMentioned = /transcript|caption/i.test(adjacentText);
             videos.push({ title, platform, src, type, transcriptOrCaptionMentioned, parentResourceTitle: item.title });
           }

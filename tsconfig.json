@@ -42,12 +42,11 @@
     "skipLibCheck": true,
 
     // Incremental migration
-    "strict": false,
+    "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "checkJs": false,
-    "noImplicitAny": false
   },
   "include": ["js/**/*"],
   "exclude": ["node_modules"]
