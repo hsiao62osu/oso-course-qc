@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "@types/jszip": "^3.4.0",
+    "@types/lodash": "^4.17.20",
+    "axe-core": "^4.10.3",
+    "jszip": "^3.10.1",
+    "lodash": "^4.17.21",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}
