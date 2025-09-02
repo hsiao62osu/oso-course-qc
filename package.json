@@ -10,5 +10,8 @@
   },
   "scripts": {
     "build": "tsc"
-  }
+  },
+  "files": [
+    "node_modules/axe-core/axe.d.ts"
+  ]
 }

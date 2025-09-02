@@ -1,6 +1,3 @@
-import JSZip from 'jszip';
-import axe from 'axe-core';
-import _ from 'lodash';
 document.addEventListener('DOMContentLoaded', () => {
     const LINK_TYPES = ['osu', 'external', 'course', 'unknown'];
     /* =========================================================================
@@ -1270,4 +1267,5 @@ document.addEventListener('DOMContentLoaded', () => {
            ========================================================================= */
     }
 });
+export {};
 //# sourceMappingURL=main.js.map

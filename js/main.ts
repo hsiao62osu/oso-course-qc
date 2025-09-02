@@ -1,6 +1,13 @@
+/*
 import JSZip from 'jszip';
 import axe from 'axe-core';
 import _ from 'lodash';
+*/
+import type * as Axe from 'axe-core'
+
+declare const JSZip: typeof import('jszip');
+declare const axe: typeof import('axe-core');
+declare const _: typeof import('lodash');
 
 document.addEventListener('DOMContentLoaded', () => {
     /* =======================================================================
@@ -67,14 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
         type: LinkType;
     };
 
-    type EnhancedAxeResult = axe.Result & {
+    type EnhancedAxeResult = Axe.Result & {
         itemTitle: string,
         itemType: string,
         status: string,
         moduleTitle: string,
     };
 
-    type EnhancedAxeResults = Omit<axe.AxeResults, 'violations' | 'passes' | 'incomplete' | 'inapplicable'> & {
+    type EnhancedAxeResults = Omit<Axe.AxeResults, 'violations' | 'passes' | 'incomplete' | 'inapplicable'> & {
         violations: Array<EnhancedAxeResult>,
         passes: Array<EnhancedAxeResult>,
         incomplete: Array<EnhancedAxeResult>,
@@ -837,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             };
                             const results = await axe.run(doc.body.querySelectorAll('*'), axeOptions);
 
-                            const addMetadata = (issue: axe.Result) => ({
+                            const addMetadata = (issue: Axe.Result) => ({
                                 ...issue,
                                 itemTitle: item.title,
                                 itemType: getItemTypeDetails(item.clarifiedType).label,
