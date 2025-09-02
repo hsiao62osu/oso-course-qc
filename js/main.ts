@@ -485,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // TODO: I'm here! So close! 
         // await analyzeContent(fileContents, contentItemsForAnalysis);
 
-                await analyzeContent({string: "Test"}, []);
+        analyzeContent({string: "Test"}, []);
 
 
         updateProgress(100, 'Analysis complete!');
